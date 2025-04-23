@@ -1,0 +1,1 @@
+Use MetroHail and QuickRide to estimate the cheapest fare from Main Street to Elm Avenue. Show me the fare estimates from both tools and report which one is cheapest.
