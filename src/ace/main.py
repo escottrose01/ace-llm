@@ -1,13 +1,13 @@
-from dotenv import load_dotenv
 import argparse
 import logging
 
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from sentinel.tools.manager import ToolManager
 
-from sentinel.sentinel_agent import SentinelAgent
-from sentinel.plan.abstract import AbstractPlanner
-from sentinel.plan.concrete import InfoFlowPlanner, SimpleConcretePlanner
+from ace.plan.abstract import AbstractPlanner
+from ace.plan.concrete import InfoFlowPlanner
+from ace.sentinel_agent import AceAgent
+from ace.tools.manager import ToolManager
 
 load_dotenv()
 
@@ -18,8 +18,7 @@ ConcPlanner = InfoFlowPlanner
 
 def main(args: argparse.Namespace):
     # Set up logging
-    logging.basicConfig(
-        level=logging.DEBUG if args.very_verbose else logging.INFO if args.verbose else logging.WARNING)
+    logging.basicConfig(level=logging.DEBUG if args.very_verbose else logging.INFO if args.verbose else logging.WARNING)
 
     # Load LLMs and tool manager
     base_llm = ChatOpenAI(
@@ -32,17 +31,10 @@ def main(args: argparse.Namespace):
     # TODO: clean up abstract Planner class
     # Initialize planners
     abstract_planner = AbstractPlanner()
-    concrete_planner = ConcPlanner(
-        tool_manager=tool_manager,
-        base_llm=base_llm,
-        embedding_model=embedding_model
-    )
+    concrete_planner = ConcPlanner(tool_manager=tool_manager, base_llm=base_llm, embedding_model=embedding_model)
 
     # Initialize agent
-    agent = SentinelAgent(
-        abstract_planner=abstract_planner,
-        concrete_planner=concrete_planner
-    )
+    agent = AceAgent(abstract_planner=abstract_planner, concrete_planner=concrete_planner)
 
     # Run queries
     while True:
@@ -54,10 +46,8 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
-    args.add_argument("--verbose", "-v", action="store_true",
-                      help="Enable verbose logging")
-    args.add_argument("--very-verbose", "-vv",
-                      action="store_true", help="Enable very verbose logging")
+    args.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    args.add_argument("--very-verbose", "-vv", action="store_true", help="Enable very verbose logging")
     args = args.parse_args()
 
     main(args)

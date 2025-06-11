@@ -1,23 +1,22 @@
-from typing import Type
-
-from pydantic import BaseModel
 import ast
-import astor
 import json
+
+import astor
+from pydantic import BaseModel
 
 
 class AbstractTool(BaseModel):
     name: str
     description: str
-    args_schema: Type[BaseModel]
-    output_schema: Type[BaseModel]
+    args_schema: type[BaseModel]
+    output_schema: type[BaseModel]
 
     def as_dict(self) -> dict:
         return {
             "name": self.name,
             "description": self.description,
             "args_schema": self.args_schema.model_json_schema(),
-            "output_schema": self.output_schema.model_json_schema()
+            "output_schema": self.output_schema.model_json_schema(),
         }
 
     def as_json(self) -> str:
@@ -34,11 +33,7 @@ class ToolCallTransformer(ast.NodeTransformer):
             # Replace call: foo(arg1, arg2, ...) with invoke("foo", arg1, arg2, ...)
             new_args = [ast.Constant(value=node.func.id)]
             new_args.extend(node.args)
-            new_node = ast.Call(
-                func=ast.Name(id="invoke", ctx=ast.Load()),
-                args=new_args,
-                keywords=node.keywords
-            )
+            new_node = ast.Call(func=ast.Name(id="invoke", ctx=ast.Load()), args=new_args, keywords=node.keywords)
             return ast.copy_location(new_node, node)
         return node
 
@@ -62,5 +57,6 @@ class AbstractPlan(BaseModel):
         ast.fix_missing_locations(prog)
 
         return astor.to_source(prog)
+
 
 # TODO: can type check the program here in validator?

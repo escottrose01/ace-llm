@@ -1,6 +1,4 @@
-from typing import Optional, Type
 from abc import ABC, abstractmethod
-
 from copy import deepcopy
 
 from .lattice import Lattice
@@ -9,13 +7,13 @@ from .lattice import Lattice
 class MemoryModel:
     dynamic_vars: dict[str, Lattice]
     static_vars: dict[str, Lattice]
-    lattice_type: Type[Lattice]
+    lattice_type: type[Lattice]
 
     def __init__(
         self,
-        lattice_type: Type[Lattice],
-        dynamic_vars: Optional[dict[str, Lattice]] = None,
-        static_vars: Optional[dict[str, Lattice]] = None,
+        lattice_type: type[Lattice],
+        dynamic_vars: dict[str, Lattice] | None = None,
+        static_vars: dict[str, Lattice] | None = None,
     ):
         self.lattice_type = lattice_type
         self.dynamic_vars = dynamic_vars if dynamic_vars is not None else {}

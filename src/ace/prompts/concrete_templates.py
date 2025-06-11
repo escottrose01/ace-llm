@@ -1,11 +1,6 @@
 from langchain.prompts import PromptTemplate
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate
-)
+from langchain.prompts.chat import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
 from pydantic import Field, create_model
-
 
 from ..schema.abstract import AbstractTool
 
@@ -19,12 +14,11 @@ WEATHER_ABS_TOOL = AbstractTool(
     args_schema=create_model(
         "WeatherCheckerArgs",
         city=(str, Field(..., description="Name of the city")),
-        time=(str, Field(..., description="Time for the weather check"))
+        time=(str, Field(..., description="Time for the weather check")),
     ),
     output_schema=create_model(
-        "WeatherCheckerOutput",
-        temperature=(float, Field(..., description="Temperature in Celsius"))
-    )
+        "WeatherCheckerOutput", temperature=(float, Field(..., description="Temperature in Celsius"))
+    ),
 ).as_json()
 
 WEATHER_CONCRETE_TOOL = AbstractTool(
@@ -33,14 +27,11 @@ WEATHER_CONCRETE_TOOL = AbstractTool(
     args_schema=create_model(
         "LadybugWeatherArgs",
         location=(str, Field(..., description="City name for weather lookup")),
-        timestamp=(
-            str, Field(..., description="Time at which to check the weather"))
+        timestamp=(str, Field(..., description="Time at which to check the weather")),
     ),
     output_schema=create_model(
-        "LadybugWeatherOutput",
-        temp=(
-            float, Field(..., description="Reported temperature in Fahrenheit"))
-    )
+        "LadybugWeatherOutput", temp=(float, Field(..., description="Reported temperature in Fahrenheit"))
+    ),
 ).as_json()
 
 WEATHER_INPUT_MAPPING = "def input_mapping(city, time): return {'location': city, 'timestamp': time}"
@@ -55,14 +46,11 @@ DOCTOR_ABS_TOOL = AbstractTool(
     args_schema=create_model(
         "DoctorSchedulerArgs",
         name=(str, Field(..., description="The name of the doctor")),
-        date=(str, Field(..., description="Date to schedule for"))
+        date=(str, Field(..., description="Date to schedule for")),
     ),
     output_schema=create_model(
-        "DoctorSchedulerOutput",
-        confirmation=(
-            str, Field(..., description="Confirmation of the appointment")
-        )
-    )
+        "DoctorSchedulerOutput", confirmation=(str, Field(..., description="Confirmation of the appointment"))
+    ),
 ).as_json()
 
 DOCTOR_CONCRETE_TOOL = AbstractTool(
@@ -71,13 +59,15 @@ DOCTOR_CONCRETE_TOOL = AbstractTool(
     args_schema=create_model(
         "MetroHealthArgs",
         doctor_id=(str, Field(..., description="Identifier of the doctor")),
-        date=(str, Field(..., description="Date of the appointment"))
+        date=(str, Field(..., description="Date of the appointment")),
     ),
     output_schema=create_model(
         "MetroHealthOutput",
         appointment_confrimation=(
-            float, Field(..., description="A confirmation for the time and place of the appointment"))
-    )
+            float,
+            Field(..., description="A confirmation for the time and place of the appointment"),
+        ),
+    ),
 ).as_json()
 
 
@@ -92,15 +82,17 @@ CURRENCY_ABS_TOOL = AbstractTool(
         "CurrencyConverterArgs",
         amount=(float, Field(..., description="Amount to convert")),
         source_currency=(
-            str, Field(..., description="Currency code to convert from (e.g., USD, EUR)", min_length=3, max_length=3)),
+            str,
+            Field(..., description="Currency code to convert from (e.g., USD, EUR)", min_length=3, max_length=3),
+        ),
         target_currency=(
-            str, Field(..., description="Currency code to convert to (e.g., USD, EUR)", min_length=3, max_length=3))
+            str,
+            Field(..., description="Currency code to convert to (e.g., USD, EUR)", min_length=3, max_length=3),
+        ),
     ),
     output_schema=create_model(
-        "CurrencyConverterOutput",
-        converted_amount=(
-            float, Field(..., description="Amount in the target currency"))
-    )
+        "CurrencyConverterOutput", converted_amount=(float, Field(..., description="Amount in the target currency"))
+    ),
 ).as_json()
 
 CURRENCY_CONCRETE_TOOL = AbstractTool(
@@ -110,13 +102,11 @@ CURRENCY_CONCRETE_TOOL = AbstractTool(
         "MoneyMoneyMoneyArgs",
         amount=(float, Field(..., description="Amount to convert")),
         source=(str, Field(..., description="Currency code to convert from")),
-        target=(str, Field(..., description="Currency code to convert to"))
+        target=(str, Field(..., description="Currency code to convert to")),
     ),
     output_schema=create_model(
-        "MoneyMoneyMoneyOutput",
-        result=(
-            float, Field(..., description="Amount in the target currency"))
-    )
+        "MoneyMoneyMoneyOutput", result=(float, Field(..., description="Amount in the target currency"))
+    ),
 ).as_json()
 
 CURRENCY_INPUT_MAPPING = "def input_mapping(amount, source_currency, target_currency): return {'amount': amount, 'source': source_currency, 'target': target_currency}"
@@ -127,13 +117,11 @@ FLIGHT_TRACKER_ABS_TOOL = AbstractTool(
     name="FlightTracker",
     description="A tool to track the status of a flight",
     args_schema=create_model(
-        "FlightTrackerArgs",
-        flight_number=(str, Field(..., description="Flight number to track"))
+        "FlightTrackerArgs", flight_number=(str, Field(..., description="Flight number to track"))
     ),
     output_schema=create_model(
-        "FlightTrackerOutput",
-        status=(str, Field(..., description="Current status of the flight"))
-    )
+        "FlightTrackerOutput", status=(str, Field(..., description="Current status of the flight"))
+    ),
 ).as_json()
 
 FLIGHT_BOOKER_CONCRETE_TOOL = AbstractTool(
@@ -143,41 +131,28 @@ FLIGHT_BOOKER_CONCRETE_TOOL = AbstractTool(
         "FlightBookerArgs",
         origin=(str, Field(..., description="Departure airport code")),
         destination=(str, Field(..., description="Arrival airport code")),
-        date=(str, Field(..., description="Date of the flight"))
+        date=(str, Field(..., description="Date of the flight")),
     ),
     output_schema=create_model(
-        "FlightBookerOutput",
-        booking_reference=(
-            str, Field(..., description="Reference number for the booking"))
-    )
+        "FlightBookerOutput", booking_reference=(str, Field(..., description="Reference number for the booking"))
+    ),
 ).as_json()
 
 # EXAMPLE 4 (invalid): Poem writer
 POEM_ABS_TOOL = AbstractTool(
     name="PoemWriter",
     description="A tool to generate a poem based on a given theme",
-    args_schema=create_model(
-        "PoemWriterArgs",
-        theme=(str, Field(..., description="Theme for the poem"))
-    ),
-    output_schema=create_model(
-        "PoemWriterOutput",
-        poem=(str, Field(..., description="Generated poem"))
-    )
+    args_schema=create_model("PoemWriterArgs", theme=(str, Field(..., description="Theme for the poem"))),
+    output_schema=create_model("PoemWriterOutput", poem=(str, Field(..., description="Generated poem"))),
 ).as_json()
 
 POEM_CONCRETE_TOOL = AbstractTool(
     name="PoemWriterPro",
     description="Creates a poem of the given type",
     args_schema=create_model(
-        "PoemWriterProArgs",
-        type=(str, Field(..., description="Type of the given poem (e.g. Haiku, Sonnet, Limerick)"))
-
+        "PoemWriterProArgs", type=(str, Field(..., description="Type of the given poem (e.g. Haiku, Sonnet, Limerick)"))
     ),
-    output_schema=create_model(
-        "PoemWriterProOutput",
-        poem=(str, Field(..., description="Generated poem"))
-    )
+    output_schema=create_model("PoemWriterProOutput", poem=(str, Field(..., description="Generated poem"))),
 ).as_json()
 
 # Example 5: MUST INCLUDE UMBRELLA TERM (e.g TERM)
@@ -185,30 +160,21 @@ POEM_CONCRETE_TOOL = AbstractTool(
 MESSAGE_ABSTRACT_TOOL = AbstractTool(
     name="MessageSender",
     description="A tool to send messages to a specified user",
-    args_schema=create_model(
-        "MessageSenderArgs",
-        username=(str, Field(..., description="The reciepients username"))
-    ),
+    args_schema=create_model("MessageSenderArgs", username=(str, Field(..., description="The reciepients username"))),
     output_schema=create_model(
-        "MessageSenderOutput",
-        confirmation=(
-            str, Field(..., description="A confirmation of the sent message"))
-    )
+        "MessageSenderOutput", confirmation=(str, Field(..., description="A confirmation of the sent message"))
+    ),
 ).as_json()
 
 MESSAGE_CONCRETE_TOOL = AbstractTool(
     name="WhatsAppSender",
     description="Sends messages to a user on WhatsApp",
     args_schema=create_model(
-        "WhatsAppSenderArgs",
-        recipient_id=(
-            str, Field(..., description="Unique Identifier of the recepient"))
+        "WhatsAppSenderArgs", recipient_id=(str, Field(..., description="Unique Identifier of the recepient"))
     ),
     output_schema=create_model(
-        "WhatsAppSenderOutput",
-        result=(
-            str, Field(..., description="A message detailing the result of the sent text"))
-    )
+        "WhatsAppSenderOutput", result=(str, Field(..., description="A message detailing the result of the sent text"))
+    ),
 ).as_json()
 
 MESSAGE_INPUT_MAPPING = "def input_mapping(username): return {'username': recipient_id}"
@@ -217,7 +183,7 @@ MESSAGE_OUTPUT_MAPPING = "def output_mapping(result): return result"
 
 def generate_tool_compatibility_json_template() -> ChatPromptTemplate:
     # Shot 1: Valid Compatibility Mapping for a Weather Checking Tool
-    shot_1 = """
+    shot_1 = f"""
     # Example 1: Valid Compatibility Mapping for a Weather Checking Tool
 
     abstract_tool:
@@ -232,15 +198,10 @@ def generate_tool_compatibility_json_template() -> ChatPromptTemplate:
     "input_mapping": "{WEATHER_INPUT_MAPPING}",
     "output_mapping": "{WEATHER_OUTPUT_MAPPING}"
     }}
-    """.format(
-        WEATHER_ABS_TOOL=WEATHER_ABS_TOOL,
-        WEATHER_CONCRETE_TOOL=WEATHER_CONCRETE_TOOL,
-        WEATHER_INPUT_MAPPING=WEATHER_INPUT_MAPPING,
-        WEATHER_OUTPUT_MAPPING=WEATHER_OUTPUT_MAPPING
-    )
+    """
 
     # Shot 2: Valid Compatibility Mapping for Currency Conversion
-    shot_2 = """
+    shot_2 = f"""
     # Example 2: Mapping for Currency Conversion
 
     abstract_tool:
@@ -255,12 +216,7 @@ def generate_tool_compatibility_json_template() -> ChatPromptTemplate:
     "input_mapping": "{CURRENCY_INPUT_MAPPING}",
     "output_mapping": "{CURRENCY_OUTPUT_MAPPING}"
     }}
-    """.format(
-        CURRENCY_ABS_TOOL=CURRENCY_ABS_TOOL,
-        CURRENCY_CONCRETE_TOOL=CURRENCY_CONCRETE_TOOL,
-        CURRENCY_INPUT_MAPPING=CURRENCY_INPUT_MAPPING,
-        CURRENCY_OUTPUT_MAPPING=CURRENCY_OUTPUT_MAPPING
-    )
+    """
 
     # Shot 3: Invalid Compatibility Mapping for a Flight Tracker vs Flight Booker
     shot_3 = """
@@ -280,7 +236,7 @@ def generate_tool_compatibility_json_template() -> ChatPromptTemplate:
     """
 
     # Shot 4: Invalid Compatibility Mapping for a Poem Writer
-    shot_4 = """
+    shot_4 = f"""
     # Example 4: Invalid Compatibility Mapping for a Poem Writer
 
     abstract_tool:
@@ -294,12 +250,9 @@ def generate_tool_compatibility_json_template() -> ChatPromptTemplate:
     "status": "failure",
     "error": "Input parameter names do not correspond appropriately to the abstract tool's inputs"
     }}
-    """.format(
-        POEM_ABS_TOOL=POEM_ABS_TOOL,
-        POEM_CONCRETE_TOOL=POEM_CONCRETE_TOOL
-    )
+    """
 
-    shot_5 = """
+    shot_5 = f"""
     # Example 5: Valid Compatibility Mapping for a Message Sender
     
     abstract_tool:
@@ -314,12 +267,7 @@ def generate_tool_compatibility_json_template() -> ChatPromptTemplate:
          "input_mapping": "{MESSAGE_INPUT_MAPPING}",
         "output_mapping": "{MESSAGE_OUTPUT_MAPPING}"
     }}
-    """.format(
-        MESSAGE_ABSTRACT_TOOL=MESSAGE_ABSTRACT_TOOL,
-        MESSAGE_CONCRETE_TOOL=MESSAGE_CONCRETE_TOOL,
-        MESSAGE_INPUT_MAPPING=MESSAGE_INPUT_MAPPING,
-        MESSAGE_OUTPUT_MAPPING=MESSAGE_OUTPUT_MAPPING
-    )
+    """
 
     template_str = """
     ### Prompt
@@ -370,24 +318,19 @@ def generate_tool_compatibility_json_template() -> ChatPromptTemplate:
     """
 
     system_msg = SystemMessagePromptTemplate(
-        prompt=PromptTemplate(
-            input_variables=["shot_1", "shot_2", "shot_3", "shot_4", "shot_5"],
-            template=template_str
-        )
+        prompt=PromptTemplate(input_variables=["shot_1", "shot_2", "shot_3", "shot_4", "shot_5"], template=template_str)
     )
 
     human_msg = HumanMessagePromptTemplate(
         prompt=PromptTemplate(
             input_variables=["abstract_tool", "concrete_tool"],
-            template="Abstract Tool: {abstract_tool}\nConcrete Tool: {concrete_tool}"
+            template="Abstract Tool: {abstract_tool}\nConcrete Tool: {concrete_tool}",
         )
     )
 
     template = ChatPromptTemplate(
-        input_variables=["shot_1", "shot_2", "shot_3", "shot_4", "shot_5"
-                         "abstract_tool", "concrete_tool"],
-        messages=[system_msg, human_msg]
+        input_variables=["shot_1", "shot_2", "shot_3", "shot_4", "shot_5abstract_tool", "concrete_tool"],
+        messages=[system_msg, human_msg],
     )
-    template = template.partial(shot_1=shot_1,
-                                shot_2=shot_2, shot_3=shot_3, shot_4=shot_4, shot_5=shot_5)
+    template = template.partial(shot_1=shot_1, shot_2=shot_2, shot_3=shot_3, shot_4=shot_4, shot_5=shot_5)
     return template

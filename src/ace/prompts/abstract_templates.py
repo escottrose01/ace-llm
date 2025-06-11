@@ -1,39 +1,28 @@
 from langchain.prompts import PromptTemplate
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate
-)
+from langchain.prompts.chat import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
 from pydantic import Field, create_model
 
 from ..schema.abstract import AbstractTool
-
 
 POEM_GENERATOR = AbstractTool(
     name="PoemGenerator",
     description="A tool that generates a poem based on a given theme or prompt",
     args_schema=create_model(
-        "PoemGeneratorArgs",
-        theme=(str, Field(..., description="The theme or prompt for the poem"))
+        "PoemGeneratorArgs", theme=(str, Field(..., description="The theme or prompt for the poem"))
     ),
-    output_schema=create_model(
-        "PoemGeneratorOutput",
-        poem=(str, Field(..., description="The generated poem"))
-    )
+    output_schema=create_model("PoemGeneratorOutput", poem=(str, Field(..., description="The generated poem"))),
 )
 
 NEWS_SUMMARIZER = AbstractTool(
     name="NewsSummarizer",
     description="A tool that summarizes the latest news articles on a given topic",
     args_schema=create_model(
-        "NewsSummarizerArgs",
-        topic=(str, Field(..., description="The topic to summarize news about"))
+        "NewsSummarizerArgs", topic=(str, Field(..., description="The topic to summarize news about"))
     ),
     output_schema=create_model(
         "NewsSummarizerOutput",
-        summary=(
-            str, Field(..., description="A summary of the latest news articles on the given topic"))
-    )
+        summary=(str, Field(..., description="A summary of the latest news articles on the given topic")),
+    ),
 )
 
 EMAIL_SENDER = AbstractTool(
@@ -41,15 +30,12 @@ EMAIL_SENDER = AbstractTool(
     description="A tool that sends an email with the provided content to a specified email address",
     args_schema=create_model(
         "EmailSenderArgs",
-        email_address=(
-            str, Field(..., description="The email address to send the content to")),
-        content=(str, Field(..., description="The content to be sent in the email"))
+        email_address=(str, Field(..., description="The email address to send the content to")),
+        content=(str, Field(..., description="The content to be sent in the email")),
     ),
     output_schema=create_model(
-        "EmailSenderOutput",
-        confirmation=(
-            str, Field(..., description="A confirmation that the email has been sent"))
-    )
+        "EmailSenderOutput", confirmation=(str, Field(..., description="A confirmation that the email has been sent"))
+    ),
 )
 
 EMAIL_RETRIEVER = AbstractTool(
@@ -60,34 +46,29 @@ EMAIL_RETRIEVER = AbstractTool(
     ),
     output_schema=create_model(
         "EmailRetrieverOutput",
-        emails=(
-            list, Field(..., description="A list of all emails collected from the specified email application"))
-    )
+        emails=(list, Field(..., description="A list of all emails collected from the specified email application")),
+    ),
 )
 
 EMAIL_SUMMARIZER = AbstractTool(
     name="EmailSummarizer",
     description="A tool that summarizes a list of emails",
     args_schema=create_model(
-        "EmailSummarizerArgs",
-        emails=(
-            list, Field(..., description="A list of emails to be summarized"))
+        "EmailSummarizerArgs", emails=(list, Field(..., description="A list of emails to be summarized"))
     ),
     output_schema=create_model(
-        "EmailSummarizerOutput",
-        summary=(
-            str, Field(..., description="A summary of the provided emails"))
-    )
+        "EmailSummarizerOutput", summary=(str, Field(..., description="A summary of the provided emails"))
+    ),
 )
 
 
 def generate_abstract_plan_template() -> ChatPromptTemplate:
-    shot_1: str = ("""
+    shot_1: str = f"""
         # This is an example of a user query that requires using a single abstract app.
 
         User: Generate a poem and count the number of r's
         Auto-Generated Abstract apps:
-        [{}]
+        [{POEM_GENERATOR.as_json()}]
         
         Generated Output:
             def main():
@@ -99,15 +80,15 @@ def generate_abstract_plan_template() -> ChatPromptTemplate:
                 return result 
             final_output = main()
                    
-    """.format(POEM_GENERATOR.as_json()))
+    """
 
-    shot_2: str = ("""
+    shot_2: str = f"""
         # This is an example of a user query that requires using two abstract apps and a user input (builtin).
 
         User input: Please summarize the latest news articles on the topic of AI and send the result in an email 
                    
         Auto-Generated Abstract apps:
-        [{}, {}]
+        [{NEWS_SUMMARIZER.as_json()}, {EMAIL_SENDER.as_json()}]
                    
         Generated Output:
             def main():
@@ -117,15 +98,15 @@ def generate_abstract_plan_template() -> ChatPromptTemplate:
                 display(conf)
                 return conf
             final_output = main()
-    """.format(NEWS_SUMMARIZER.as_json(), EMAIL_SENDER.as_json()))
+    """
 
-    shot_3: str = ("""
+    shot_3: str = f"""
         # This is an example of a user query that requires using multiple implementations of a single abstract app.
 
         User: Check all my email apps and summarize all unread emails
         
         Auto-Generated Abstract apps:
-        [{}, {}]
+        [{EMAIL_RETRIEVER.as_json()}, {EMAIL_SUMMARIZER.as_json()}]
 
         Generated Output:
             def main():
@@ -137,9 +118,9 @@ def generate_abstract_plan_template() -> ChatPromptTemplate:
                 display(summary)
                 return summary
             final_output = main()
-    """.format(EMAIL_RETRIEVER.as_json(), EMAIL_SUMMARIZER.as_json()))
+    """
 
-    template_str = '''
+    template_str = """
         # Prompt
 
         Objective:
@@ -186,26 +167,25 @@ def generate_abstract_plan_template() -> ChatPromptTemplate:
 
         
         You MUST STRICTLY follow the format suggested by the above provided output examples. Only answer with the specified Python function.
-    '''
+    """
 
-    template_planner_message = [SystemMessagePromptTemplate(prompt=PromptTemplate(
-        input_variables=['shot_1', 'shot_2', 'shot_3', 'tools'], template=template_str)),
-        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=['input'],
-                                                         template="User Query: {input}"))
+    template_planner_message = [
+        SystemMessagePromptTemplate(
+            prompt=PromptTemplate(input_variables=["shot_1", "shot_2", "shot_3", "tools"], template=template_str)
+        ),
+        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["input"], template="User Query: {input}")),
     ]
 
     template_planner = ChatPromptTemplate(
-        input_variables=['shot_1', 'shot_2', 'shot_3', 'tools', 'input'],
-        messages=template_planner_message
+        input_variables=["shot_1", "shot_2", "shot_3", "tools", "input"], messages=template_planner_message
     )
 
-    template_planner = template_planner.partial(
-        shot_1=shot_1, shot_2=shot_2, shot_3=shot_3)
+    template_planner = template_planner.partial(shot_1=shot_1, shot_2=shot_2, shot_3=shot_3)
     return template_planner
 
 
 def generate_abstract_tool_template() -> ChatPromptTemplate:
-    tools_output_format = '''
+    tools_output_format = """
         {
             "apps": 
             [
@@ -225,15 +205,15 @@ def generate_abstract_tool_template() -> ChatPromptTemplate:
                 }
             ]
         }
-        '''
+        """
 
-    tools_output_empty_format = '''
+    tools_output_empty_format = """
     {
         "apps": []
     }
-    '''
+    """
 
-    shot_1: str = ("""
+    shot_1: str = """
         # This is an example of a user query that requires a single tool
         
         User: I would like to know what the temperature it in Brooklyn at 6pm today.
@@ -262,9 +242,9 @@ def generate_abstract_tool_template() -> ChatPromptTemplate:
                 },
             ]
         }
-    """)
+    """
 
-    shot_2: str = ("""
+    shot_2: str = """
     # This is an example of a user query that requires a shopping tool.
 
     User: I would like to order a pizza online for delivery.
@@ -293,9 +273,9 @@ def generate_abstract_tool_template() -> ChatPromptTemplate:
             }
         ]
     }
-    """)
+    """
 
-    shot_3 = ("""
+    shot_3 = """
     User Query: Please post a message saying "Release is scheduled for tomorrow at 10 AM" to the #project-updates channel.
     Generated Output:
     {"apps":
@@ -320,9 +300,9 @@ def generate_abstract_tool_template() -> ChatPromptTemplate:
             }
         ]
     }
-    """)
+    """
 
-    shot_4 = ("""
+    shot_4 = """
     User Query: Can you please list my current subscriptions?
     Abstract Tool:
     {
@@ -338,9 +318,9 @@ def generate_abstract_tool_template() -> ChatPromptTemplate:
             },
         ]
     }
-    """)
+    """
 
-    template_str = ("""
+    template_str = """
         '# Prompt
         
         Objective:
@@ -404,20 +384,33 @@ def generate_abstract_tool_template() -> ChatPromptTemplate:
         - The parameters generated should be retrievable from the user query. Do not include inputs that are not mentioned in the input.
         - Do NOT generate tools that can be covered using simple Python code, for example "NumberAdder", "StringConcatenator", "ResponseComparator" ARE NOT NEEDED.
         """
-                    )
 
-    template_planner_message = [SystemMessagePromptTemplate(prompt=PromptTemplate(
-        input_variables=['output_format', 'output_format_empty', 'shot_1', 'shot_2', 'shot_3', 'shot_4'], template=template_str)),
-        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=['input'],
-                                                         template="User Query: {input} \n Ensure that a tool is always used if applicable."))
+    template_planner_message = [
+        SystemMessagePromptTemplate(
+            prompt=PromptTemplate(
+                input_variables=["output_format", "output_format_empty", "shot_1", "shot_2", "shot_3", "shot_4"],
+                template=template_str,
+            )
+        ),
+        HumanMessagePromptTemplate(
+            prompt=PromptTemplate(
+                input_variables=["input"],
+                template="User Query: {input} \n Ensure that a tool is always used if applicable.",
+            )
+        ),
     ]
 
     template_planner = ChatPromptTemplate(
-        input_variables=['output_format',
-                         'output_format_empty', 'shot_1', 'shot_2', 'shot_3', 'shot_4', 'input'],
-        messages=template_planner_message
+        input_variables=["output_format", "output_format_empty", "shot_1", "shot_2", "shot_3", "shot_4", "input"],
+        messages=template_planner_message,
     )
 
-    template_planner = template_planner.partial(output_format=tools_output_format, output_format_empty=tools_output_empty_format,
-                                                shot_1=shot_1, shot_2=shot_2, shot_3=shot_3, shot_4=shot_4)
+    template_planner = template_planner.partial(
+        output_format=tools_output_format,
+        output_format_empty=tools_output_empty_format,
+        shot_1=shot_1,
+        shot_2=shot_2,
+        shot_3=shot_3,
+        shot_4=shot_4,
+    )
     return template_planner

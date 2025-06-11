@@ -1,28 +1,23 @@
-from abc import ABC, abstractmethod
-from typing import Type, Optional, Any
-
 import ast
-from pydantic import BaseModel, model_validator, create_model
 import json
+from abc import ABC, abstractmethod
+from typing import Any
+
+from pydantic import BaseModel, create_model, model_validator
 
 from .permissions import Permission
 
-ALLOWED_TYPES_MAP = {
-    "int": int,
-    "float": float,
-    "str": str,
-    "bool": bool
-}
+ALLOWED_TYPES_MAP = {"int": int, "float": float, "str": str, "bool": bool}
 
 
 class ConcreteToolBase(BaseModel, ABC):
     name: str
-    provider: Optional[str]
-    description: Optional[str]
+    provider: str | None
+    description: str | None
     clearances: set[str]
     permissions: set[Permission]
-    args_schema: Optional[Type[BaseModel]]
-    output_schema: Optional[Type[BaseModel]]
+    args_schema: type[BaseModel] | None
+    output_schema: type[BaseModel] | None
 
     @abstractmethod
     def generate_source(self) -> str:
@@ -36,7 +31,7 @@ class ConcreteToolBase(BaseModel, ABC):
             "name": self.name,
             "description": self.description,
             "args_schema": self.args_schema.model_json_schema(),
-            "output_schema": self.output_schema.model_json_schema()
+            "output_schema": self.output_schema.model_json_schema(),
         }
 
     def as_json(self) -> str:
@@ -47,10 +42,7 @@ class CustomTool(ConcreteToolBase):
     source_code: str
 
     @model_validator(mode="before")
-    def validate_and_infer_types(
-        cls,
-        data: dict[str, Any]
-    ) -> dict[str, Any]:
+    def validate_and_infer_types(cls, data: dict[str, Any]) -> dict[str, Any]:
         # Validate code syntax
         code = data.get("source_code")
         if not code:
@@ -62,14 +54,11 @@ class CustomTool(ConcreteToolBase):
 
         # Tool grammar rule: must contain a single function named main
         main_func_check = (
-            len(tree.body) == 1
-            and isinstance(tree.body[0], ast.FunctionDef)
-            and tree.body[0].name == "main"
+            len(tree.body) == 1 and isinstance(tree.body[0], ast.FunctionDef) and tree.body[0].name == "main"
         )
 
         if not main_func_check:
-            raise ValueError(
-                "source_code must contain a single function named main.")
+            raise ValueError("source_code must contain a single function named main.")
 
         return data
 
@@ -81,26 +70,18 @@ class LangChainTool(ConcreteToolBase):
     function_name: str
 
     @model_validator(mode="before")
-    def validate_and_infer_types(
-        cls,
-        data: dict[str, Any]
-    ) -> dict[str, Any]:
+    def validate_and_infer_types(cls, data: dict[str, Any]) -> dict[str, Any]:
         function_name = data.get("function_name")
         if not function_name:
             raise ValueError("function_name is required.")
 
         try:
             import langchain_community.tools as lc_tools
-        except ImportError as e:
-            raise ValueError(
-                "Could not import langchain_community.tools: "
-                "make sure it is installed."
-            )
+        except ImportError:
+            raise ValueError("Could not import langchain_community.tools: make sure it is installed.")
 
         if not hasattr(lc_tools, function_name):
-            raise ValueError(
-                f"Function {function_name} not found in langchain_community.tools."
-            )
+            raise ValueError(f"Function {function_name} not found in langchain_community.tools.")
 
         # Infer args_schema and output_schema
         args_fields = dict()
@@ -117,8 +98,7 @@ class LangChainTool(ConcreteToolBase):
 
         if func.__annotations__.get("return"):
             output_schema = func.__annotations__["return"]
-            output_schema = create_model(
-                f"{function_name}Output", product=(output_schema, ...))
+            output_schema = create_model(f"{function_name}Output", product=(output_schema, ...))
         else:
             output_schema = create_model(f"{function_name}Output")
 
@@ -135,7 +115,6 @@ class LangChainTool(ConcreteToolBase):
             f"def main(*args, **kwargs):\n"
             f"    tool_instance = {self.function_name}()\n"
             f"    return tool_instance.run(*args, **kwargs)\n"
-
         )
 
 

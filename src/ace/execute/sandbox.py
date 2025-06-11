@@ -1,18 +1,18 @@
-from typing import Optional, Any
+import base64
+import json
+import logging
+import threading
+import time
 from enum import Enum
+from typing import Any
 
 import docker
 import docker.models
 import docker.models.containers
-import threading
-import base64
-import json
-import logging
-import time
 
-from ..schema.concrete import ConcreteToolBase
 from ..schema.abstract import AbstractPlan
-from .helper import write_to_socket, safe_container_cleanup
+from ..schema.concrete import ConcreteToolBase
+from .helper import safe_container_cleanup, write_to_socket
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class ExecutionStatus(Enum):
 
 class PlanExecutionSandbox:
     plan: AbstractPlan
-    container: Optional[docker.models.containers.Container]
+    container: docker.models.containers.Container | None
     port_ready: threading.Event
 
     def __init__(self, plan: AbstractPlan):
@@ -76,10 +76,7 @@ class PlanExecutionSandbox:
         if not self.port_ready.wait(timeout=timeout):
             raise TimeoutError("Timed out waiting for container port")
 
-        writer_thread = threading.Thread(
-            target=write_to_socket,
-            args=(self.addr, message)
-        )
+        writer_thread = threading.Thread(target=write_to_socket, args=(self.addr, message))
         writer_thread.start()
 
     def kill(self) -> None:
@@ -121,17 +118,13 @@ class PlanExecutionSandbox:
 
 class ToolExecutionSandbox:
     tool: ConcreteToolBase
-    container: Optional[docker.models.containers.Container]
+    container: docker.models.containers.Container | None
 
     def __init__(self, tool: ConcreteToolBase):
         self.tool = tool
         self.container = None
 
-    def launch(
-        self,
-        args: list[Any] = [],
-        kwargs: dict[str, Any] = {}
-    ) -> None:
+    def launch(self, args: list[Any] = [], kwargs: dict[str, Any] = {}) -> None:
         # Enforce input typing
         # TODO: enforce input typing according to tool schema
 
@@ -157,7 +150,7 @@ class ToolExecutionSandbox:
             ports={"8080/tcp": None},
         )
 
-    def wait_for_result(self, timeout: Optional[float] = None) -> None:
+    def wait_for_result(self, timeout: float | None = None) -> None:
         if not self.container:
             raise RuntimeError("Container not launched")
         self.container.wait(timeout=timeout)

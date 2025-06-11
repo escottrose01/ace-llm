@@ -28,7 +28,7 @@ class Lattice(ABC):
         pass
 
 
-class SubsetLattice():
+class SubsetLattice:
     val: set[str]
 
     def bottom() -> "SubsetLattice":

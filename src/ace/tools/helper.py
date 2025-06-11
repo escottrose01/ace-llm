@@ -1,13 +1,11 @@
-from typing import Any, Type, Optional, Tuple
 from enum import Enum
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field, create_model
 from langchain.tools import Tool as LangchainTool
+from pydantic import BaseModel, Field, create_model
 
 
-def generate_langchain_tool_source(
-    tool: LangchainTool
-) -> str:
+def generate_langchain_tool_source(tool: LangchainTool) -> str:
     tool_name = tool.__class__.__name__
     import_stmt = f"from langchain.tools import {tool_name}\n"
 
@@ -17,7 +15,7 @@ def generate_langchain_tool_source(
     return source_code
 
 
-def json_schema_to_base_model(schema: dict[str, Any]) -> Type[BaseModel]:
+def json_schema_to_base_model(schema: dict[str, Any]) -> type[BaseModel]:
     """
     Recursively converts a JSON schema into a Pydantic model.
     """
@@ -51,14 +49,12 @@ def json_schema_to_base_model(schema: dict[str, Any]) -> Type[BaseModel]:
             field_type = Enum(enum_name, {str(v): v for v in enum_values})
         # Handle Nested Objects
         elif json_type == "object" and "properties" in field_props:
-            field_type = json_schema_to_base_model(
-                field_props)  # Recursively create submodel
+            field_type = json_schema_to_base_model(field_props)  # Recursively create submodel
         # Handle Arrays with Nested Objects
         elif json_type == "array" and "items" in field_props:
             item_props = field_props["items"]
             if item_props.get("type") == "object":
-                item_type: type[BaseModel] = json_schema_to_base_model(
-                    item_props)
+                item_type: type[BaseModel] = json_schema_to_base_model(item_props)
             else:
                 item_type: type = type_mapping.get(item_props.get("type"), Any)
             field_type = list[item_type]
@@ -69,8 +65,7 @@ def json_schema_to_base_model(schema: dict[str, Any]) -> Type[BaseModel]:
         default_value = field_props.get("default", ...)
         nullable = field_props.get("nullable", False)
         # Use "description" if available, fallback to "title"
-        description = field_props.get(
-            "description", field_props.get("title", ""))
+        description = field_props.get("description", field_props.get("title", ""))
 
         if nullable:
             field_type = Optional[field_type]
@@ -86,8 +81,7 @@ def json_schema_to_base_model(schema: dict[str, Any]) -> Type[BaseModel]:
         result_type = type_mapping.get(json_type, Any)
         description = schema.get("description", schema.get("title", ""))
         return create_model(
-            schema.get("title", "DynamicModel"),
-            result=(result_type, Field(..., description=description))
+            schema.get("title", "DynamicModel"), result=(result_type, Field(..., description=description))
         )
     else:
         for field_name, field_props in properties.items():
@@ -97,7 +91,7 @@ def json_schema_to_base_model(schema: dict[str, Any]) -> Type[BaseModel]:
     return create_model(schema.get("title", "DynamicModel"), **model_fields)
 
 
-def parse_schemas_from_json(schema: dict[str, Any]) -> Tuple[Type[BaseModel], Type[BaseModel]]:
+def parse_schemas_from_json(schema: dict[str, Any]) -> tuple[type[BaseModel], type[BaseModel]]:
     # Assume there is one top-level key representing the tool name.
     top_level_props = schema.get("properties", {})
     if not top_level_props:
@@ -108,8 +102,7 @@ def parse_schemas_from_json(schema: dict[str, Any]) -> Tuple[Type[BaseModel], Ty
     tool_properties = tool_schema.get("properties", {})
 
     if "request" not in tool_properties or "response" not in tool_properties:
-        raise ValueError(
-            "The tool schema must contain both 'request' and 'response' keys.")
+        raise ValueError("The tool schema must contain both 'request' and 'response' keys.")
     if len(tool_properties["request"]["required"]) == 0:
         pass
 

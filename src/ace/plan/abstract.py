@@ -1,14 +1,12 @@
 import re
-from typing import Type, Dict
-from pydantic import BaseModel, create_model, Field
 
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema import AIMessage
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field, create_model
 
-from ..prompts.abstract_templates import generate_abstract_tool_template, generate_abstract_plan_template
+from ..prompts.abstract_templates import generate_abstract_plan_template, generate_abstract_tool_template
 from ..schema import AbstractPlan, AbstractTool
 
 
@@ -27,28 +25,24 @@ def parse_text_to_python(text: str | AIMessage) -> str:
     return code
 
 
-def create_pydantic_schema(fields: Dict[str, Dict[str, str]]) -> Type[BaseModel]:
+def create_pydantic_schema(fields: dict[str, dict[str, str]]) -> type[BaseModel]:
     schema_fields = {}
     for field_name, field_props in fields.items():
         # Convert string type to actual Python type
         field_type = eval(field_props["type"])
         field_description = field_props.get("description", "")
-        schema_fields[field_name] = (
-            field_type, Field(..., description=field_description))
+        schema_fields[field_name] = (field_type, Field(..., description=field_description))
 
     return create_model("ArgsSchema", **schema_fields)
 
 
-class AbstractPlanner():
+class AbstractPlanner:
     base_llm: ChatOpenAI
     toolgen_chain: Runnable
     plangen_chain: Runnable
 
     def __init__(self):
-        self.base_llm = ChatOpenAI(
-            model="gpt-4o-mini-2024-07-18",
-            temperature=0.0
-        )
+        self.base_llm = ChatOpenAI(model="gpt-4o-mini-2024-07-18", temperature=0.0)
 
         toolgen_prompt = generate_abstract_tool_template()
         plangen_prompt = generate_abstract_plan_template()
@@ -67,18 +61,14 @@ class AbstractPlanner():
     def generate_abstract_plan(self, query):
         abstract_tools = self.generate_abstract_tools(query)
         self.tools = abstract_tools
-        abstract_plan = self.plangen_chain.invoke({
-            "input": query,
-            "tools": abstract_tools
-        })
+        abstract_plan = self.plangen_chain.invoke({"input": query, "tools": abstract_tools})
 
         abstract_tool_list = []
         for tool in abstract_tools["apps"]:
             input_ = tool.get("input", tool.get("inputs"))
             output_ = tool.get("output", tool.get("outputs"))
             tool_input_schema = create_pydantic_schema(input_)
-            tool_output_schema = create_pydantic_schema(
-                {"output": output_})
+            tool_output_schema = create_pydantic_schema({"output": output_})
 
             abstract_tool = AbstractTool(
                 name=tool["name"],
@@ -89,7 +79,4 @@ class AbstractPlanner():
 
             abstract_tool_list.append(abstract_tool)
 
-        return AbstractPlan(
-            script=parse_text_to_python(abstract_plan),
-            abs_tools=abstract_tool_list
-        )
+        return AbstractPlan(script=parse_text_to_python(abstract_plan), abs_tools=abstract_tool_list)

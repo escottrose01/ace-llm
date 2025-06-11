@@ -1,5 +1,6 @@
-import socket
 import logging
+import socket
+
 import docker.models.containers
 
 logger = logging.getLogger(__name__)
@@ -20,10 +21,10 @@ def write_to_socket(addr: tuple[str, int], message: str) -> None:
 def safe_container_cleanup(container: docker.models.containers.Container) -> None:
     try:
         container.kill()
-    except Exception as e:
+    except Exception:
         pass
 
     try:
         container.remove(force=True)
-    except Exception as e:
+    except Exception:
         pass

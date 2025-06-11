@@ -1,9 +1,8 @@
+import ast
 from dataclasses import dataclass
 
-import ast
-
+from ..schema.infoflow import ExplicitFlow, Flow, MemoryModel, RepetitionFlow, SequenceFlow
 from ..schema.lattice import Lattice
-from ..schema.infoflow import MemoryModel, Flow, ExplicitFlow, SequenceFlow, RepetitionFlow
 
 ExprType = ast.Name | ast.Constant | ast.BinOp | ast.Compare | ast.Subscript
 
@@ -27,8 +26,7 @@ def extract_vars_from_expr(node: ast.expr) -> set[str]:
         return left | comparators
     elif isinstance(node, ast.Subscript):
         if not isinstance(node.value, (ast.Name, ast.Constant)):
-            raise TypeError(
-                "Subscript base must be a variable name or constant")
+            raise TypeError("Subscript base must be a variable name or constant")
         base = {node.value.id} if isinstance(node.value, ast.Name) else set()
         index = extract_vars_from_expr(node.slice)
         return base | index
@@ -65,10 +63,7 @@ class FlowParser(ast.NodeVisitor):
     def parse(self, source_ast: ast.AST) -> Flow:
         self.flow = SequenceFlow([])
 
-        main_defs = [
-            node for node in source_ast.body
-            if isinstance(node, ast.FunctionDef) and node.name == "main"
-        ]
+        main_defs = [node for node in source_ast.body if isinstance(node, ast.FunctionDef) and node.name == "main"]
 
         if len(main_defs) != 1:
             raise ValueError("There must be exactly one main() function")
@@ -99,8 +94,7 @@ class FlowParser(ast.NodeVisitor):
             func_name = "+"
             inputs |= extract_vars_from_expr(node.value)
         else:
-            raise TypeError(
-                "Annotation value must be a function call or expression")
+            raise TypeError("Annotation value must be a function call or expression")
 
         self.flow.flows.append(ExplicitFlow(outputs, inputs, func_name))
         self.generic_visit(node)
@@ -125,16 +119,14 @@ class FlowParser(ast.NodeVisitor):
             func_name = "+"
             inputs |= extract_vars_from_expr(node.value)
         else:
-            raise TypeError(
-                "Assignment value must be a function call or expression")
+            raise TypeError("Assignment value must be a function call or expression")
 
         self.flow.flows.append(ExplicitFlow(outputs, inputs, func_name))
         self.generic_visit(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         if not isinstance(node.target, ast.Name):
-            raise TypeError(
-                "Augmented assignment target must be a variable name")
+            raise TypeError("Augmented assignment target must be a variable name")
 
         outputs = {node.target.id}
         inputs = set(self.taint)
@@ -297,20 +289,12 @@ class FlowAnalyzer:
             joined_inputs = joined_inputs + self.get_label(var)
 
         if flow.function != "+":
-            func_label = self.memory.static_vars.get(
-                flow.function,
-                self.memory.lattice_type.bottom()
-            )
+            func_label = self.memory.static_vars.get(flow.function, self.memory.lattice_type.bottom())
             if not (joined_inputs <= func_label):
-                violating_inputs = {
-                    var for var in flow.inputs
-                    if not (self.get_label(var) <= func_label)
-                }
-                self._violations.append(Violation(
-                    flow=flow,
-                    violating_inputs=violating_inputs,
-                    state=self.memory.clone()
-                ))
+                violating_inputs = {var for var in flow.inputs if not (self.get_label(var) <= func_label)}
+                self._violations.append(
+                    Violation(flow=flow, violating_inputs=violating_inputs, state=self.memory.clone())
+                )
             extra = func_label
         else:
             extra = self.memory.lattice_type.bottom()
@@ -335,7 +319,7 @@ class FlowAnalyzer:
                 before = self.memory.clone()
                 self.analyze_flow(flow.body)
                 after = self.memory
-                stable = (before.dynamic_vars == after.dynamic_vars)
+                stable = before.dynamic_vars == after.dynamic_vars
 
     def analyze_ast(self, source_ast: ast.AST) -> None:
         parser = FlowParser()

@@ -1,13 +1,12 @@
-from pydantic import create_model, Field
-from dotenv import load_dotenv
 import json
 
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-
-from sentinel.tools.manager import ToolManager
-from sentinel.schema import AbstractPlan, AbstractTool
+from pydantic import Field, create_model
 from sentinel.execute import PlanOrchestrator
 from sentinel.plan.concrete import SimpleConcretePlanner
+from sentinel.schema import AbstractPlan, AbstractTool
+from sentinel.tools.manager import ToolManager
 
 
 def main():
@@ -20,18 +19,12 @@ def main():
     arg_schema = create_model(
         "RideShareArgs",
         src=(str, Field(..., description="Starting location for the ride")),
-        dst=(str, Field(..., description="Destination location for the ride"))
+        dst=(str, Field(..., description="Destination location for the ride")),
     )
-    output_schema = create_model(
-        "RideShareOutput",
-        fare=(float, Field(..., description="Fare for the ride"))
-    )
+    output_schema = create_model("RideShareOutput", fare=(float, Field(..., description="Fare for the ride")))
 
     abstract_tool = AbstractTool(
-        name="RideShare",
-        description="Generic rideshare service",
-        args_schema=arg_schema,
-        output_schema=output_schema
+        name="RideShare", description="Generic rideshare service", args_schema=arg_schema, output_schema=output_schema
     )
 
     plan_script = (
@@ -44,22 +37,17 @@ def main():
     plan = AbstractPlan(script=plan_script, abs_tools=[abstract_tool])
 
     base_llm = ChatOpenAI(
-        model="Qwen/Qwen2.5-72B-Instruct",
-        temperature=0.0,
-        openai_api_base="http://localhost:8000/v1"
+        model="Qwen/Qwen2.5-72B-Instruct", temperature=0.0, openai_api_base="http://localhost:8000/v1"
     )
     embedding_model = OpenAIEmbeddings()
     concrete_planner = SimpleConcretePlanner(
-        tool_manager=tool_manager,
-        base_llm=base_llm,
-        embedding_model=embedding_model
+        tool_manager=tool_manager, base_llm=base_llm, embedding_model=embedding_model
     )
 
     # Test matching: raw llm invocation
-    result = concrete_planner.compat_chain.invoke({
-        "abstract_tool": abstract_tool.as_json(),
-        "concrete_tool": quickride.as_json()
-    })
+    result = concrete_planner.compat_chain.invoke(
+        {"abstract_tool": abstract_tool.as_json(), "concrete_tool": quickride.as_json()}
+    )
     print("Abstract JSON:")
     print(json.dumps(json.loads(abstract_tool.as_json()), indent=2))
     print("Concrete JSON:")

@@ -1,12 +1,12 @@
 # TODO: clean up this code
 
-import os
+import base64
 import json
+import os
 import socket
 import sys
-import base64
 import threading
-from typing import Any, List
+from typing import Any
 
 ORCHESTRATOR_IP = "172.17.0.1"
 ORCHESTRATOR_PORT = 65432
@@ -18,7 +18,7 @@ def handle_write(addr, message):
         print("attempting to write to", addr)
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(addr)
-        message = socket.gethostname() + ':' + message
+        message = socket.gethostname() + ":" + message
         print("Attempting to send " + message)
         client_socket.send(message.encode())
         print("tool msg:", message)
@@ -37,7 +37,7 @@ def main() -> None:
     kwargs_json: str = base64.b64decode(kwargs_json_b64).decode()
 
     try:
-        args: List[Any] = json.loads(args_json)
+        args: list[Any] = json.loads(args_json)
         kwargs: dict[str, Any] = json.loads(kwargs_json)
     except Exception as e:
         print("Error decoding ARGS:", e, flush=True)
@@ -51,33 +51,21 @@ def main() -> None:
 
         result: Any = local_ns["main"](*args, **kwargs)
 
-        result_b64: str = base64.b64encode(
-            json.dumps(result).encode()
-        ).decode()
+        result_b64: str = base64.b64encode(json.dumps(result).encode()).decode()
 
         result_b64 = "RESULT:" + result_b64
 
         # Send message to orchestrator
-        writer_thread = threading.Thread(
-            target=handle_write,
-            args=(ORCHESTRATOR_ADDR, result_b64),
-            daemon=True
-        )
+        writer_thread = threading.Thread(target=handle_write, args=(ORCHESTRATOR_ADDR, result_b64), daemon=True)
         writer_thread.start()
 
         writer_thread.join()
 
     except Exception as e:
         error_msg: str = f"Error executing tool code: {e}"
-        error_msg_b64: str = "ERROR:" + base64.b64encode(
-            error_msg.encode()
-        ).decode()
+        error_msg_b64: str = "ERROR:" + base64.b64encode(error_msg.encode()).decode()
         print(error_msg, flush=True)
-        writer_thread = threading.Thread(
-            target=handle_write,
-            args=(ORCHESTRATOR_ADDR, error_msg_b64),
-            daemon=True
-        )
+        writer_thread = threading.Thread(target=handle_write, args=(ORCHESTRATOR_ADDR, error_msg_b64), daemon=True)
         writer_thread.start()
         writer_thread.join()
 
