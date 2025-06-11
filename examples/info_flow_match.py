@@ -1,12 +1,11 @@
-from pydantic import create_model, Field
-from dotenv import load_dotenv
 import random
 
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-
-from sentinel.tools.manager import ToolManager
-from sentinel.schema import AbstractPlan, AbstractTool, CustomTool
+from pydantic import Field, create_model
 from sentinel.plan.concrete import InfoFlowPlanner
+from sentinel.schema import AbstractPlan, AbstractTool, CustomTool
+from sentinel.tools.manager import ToolManager
 
 
 def main():
@@ -26,15 +25,11 @@ def main():
             permissions=set(),
             source_code="def main(filepath): return 'Hello World!'",
             args_schema=create_model(
-                "LoadFileArgs",
-                filepath=(
-                    str, Field(..., description="Path to the file to load"))
+                "LoadFileArgs", filepath=(str, Field(..., description="Path to the file to load"))
             ),
             output_schema=create_model(
-                "LoadFileOutput",
-                content=(
-                    str, Field(..., description="Contents of the loaded file"))
-            )
+                "LoadFileOutput", content=(str, Field(..., description="Contents of the loaded file"))
+            ),
         )
         for tag in tags_lf
     ]
@@ -49,16 +44,13 @@ def main():
             source_code="def main(recipient, subject, body): return 'Email sent successfully!'",
             args_schema=create_model(
                 "SendEmailArgs",
-                recipient=(
-                    str, Field(..., description="Email address of the recipient")),
+                recipient=(str, Field(..., description="Email address of the recipient")),
                 subject=(str, Field(..., description="Subject of the email")),
-                body=(str, Field(..., description="Body of the email"))
+                body=(str, Field(..., description="Body of the email")),
             ),
             output_schema=create_model(
-                "SendEmailOutput",
-                status=(
-                    str, Field(..., description="Status of the email sending operation"))
-            )
+                "SendEmailOutput", status=(str, Field(..., description="Status of the email sending operation"))
+            ),
         )
         for tag in tags_se
     ]
@@ -74,13 +66,13 @@ def main():
         name="load_file",
         description="Load a file from the local filesystem",
         args_schema=load_file[0].args_schema,
-        output_schema=load_file[0].output_schema
+        output_schema=load_file[0].output_schema,
     )
     send_email_abs = AbstractTool(
         name="send_email",
         description="Send an email to a specified recipient",
         args_schema=send_email[0].args_schema,
-        output_schema=send_email[0].output_schema
+        output_schema=send_email[0].output_schema,
     )
 
     plan_script = (
@@ -95,16 +87,10 @@ def main():
     plan = AbstractPlan(script=plan_script, abs_tools=abs_tools)
 
     base_llm = ChatOpenAI(
-        model="Qwen/Qwen2.5-72B-Instruct",
-        temperature=0.0,
-        openai_api_base="http://localhost:8000/v1"
+        model="Qwen/Qwen2.5-72B-Instruct", temperature=0.0, openai_api_base="http://localhost:8000/v1"
     )
     embedding_model = OpenAIEmbeddings()
-    concrete_planner = InfoFlowPlanner(
-        tool_manager=tool_manager,
-        base_llm=base_llm,
-        embedding_model=embedding_model
-    )
+    concrete_planner = InfoFlowPlanner(tool_manager=tool_manager, base_llm=base_llm, embedding_model=embedding_model)
 
     tool_mapping = concrete_planner.implement_plan(plan)
     for abs_tool, concrete_tool in tool_mapping.items():

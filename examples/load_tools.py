@@ -1,8 +1,7 @@
 from pydantic import create_model
-
-from sentinel.tools.manager import ToolManager
-from sentinel.schema import AbstractPlan, AbstractTool
 from sentinel.execute import PlanOrchestrator
+from sentinel.schema import AbstractPlan, AbstractTool
+from sentinel.tools.manager import ToolManager
 
 
 def main():
@@ -26,13 +25,13 @@ def main():
             name="RideShare__1",
             description="Generic rideshare service",
             args_schema=arg_schema,
-            output_schema=output_schema
+            output_schema=output_schema,
         ),
         AbstractTool(
             name="RideShare__2",
             description="MetroHail rideshare service",
             args_schema=arg_schema,
-            output_schema=output_schema
+            output_schema=output_schema,
         ),
     ]
 

@@ -1,4 +1,6 @@
-def main(name: str, dob: str, city: str, email: str, preferred_date: str, medical_issues: str, preferred_doctor: str = None) -> str:
+def main(
+    name: str, dob: str, city: str, email: str, preferred_date: str, medical_issues: str, preferred_doctor: str = None
+) -> str:
     """
     Book a healthcare appointment and return the details.
 
@@ -11,11 +13,10 @@ def main(name: str, dob: str, city: str, email: str, preferred_date: str, medica
     :param preferred_doctor: str: The preferred doctor for the appointment, if any.
     :returns: dict: The details of the appointment.
     """
-    from typing import Optional
 
+    import json
     import random
     from datetime import time
-    import json
 
     hours = random.randint(8, 17)  # Assuming office hours are 8am to 5pm
     # Appointment at 0, 15, 30, or 45 mins past the hour
@@ -23,13 +24,13 @@ def main(name: str, dob: str, city: str, email: str, preferred_date: str, medica
     appointment_time = time(hour=hours, minute=minutes)
 
     appointment_details = {
-        'Patient Name': name,
-        'Date of Birth': dob,
-        'City': city,
-        'Email Address': email,
-        'Appointment Date and Time': preferred_date + " " + str(appointment_time),
-        'Medical Issues': medical_issues,
-        'Preferred Doctor': preferred_doctor if preferred_doctor else "Any available"
+        "Patient Name": name,
+        "Date of Birth": dob,
+        "City": city,
+        "Email Address": email,
+        "Appointment Date and Time": preferred_date + " " + str(appointment_time),
+        "Medical Issues": medical_issues,
+        "Preferred Doctor": preferred_doctor if preferred_doctor else "Any available",
     }
 
     # return appointment_details

@@ -1,10 +1,10 @@
-from pydantic import BaseModel
-import logging
 import argparse
+import logging
 
+from pydantic import BaseModel
+from sentinel.execute.orchestrator import PlanOrchestrator
 from sentinel.schema.abstract import AbstractPlan
 from sentinel.schema.concrete import CustomTool
-from sentinel.execute.orchestrator import PlanOrchestrator
 
 
 class MultiplierArgs(BaseModel):
@@ -16,11 +16,7 @@ class MultiplierOutput(BaseModel):
     product: int
 
 
-multiplier_source = (
-    "def main(a : int, b : int):\n"
-    "    # Multiply the two numbers\n"
-    "    return a * b\n"
-)
+multiplier_source = "def main(a : int, b : int):\n    # Multiply the two numbers\n    return a * b\n"
 
 
 class CountRsArgs(BaseModel):
@@ -46,7 +42,7 @@ multiplier_tool = CustomTool(
     provider="demo_provider",
     args_schema=MultiplierArgs,
     output_schema=MultiplierOutput,
-    source_code=multiplier_source
+    source_code=multiplier_source,
 )
 
 count_rs_tool = CustomTool(
@@ -58,7 +54,7 @@ count_rs_tool = CustomTool(
     provider="demo_provider",
     args_schema=CountRsArgs,
     output_schema=CountRsOutput,
-    source_code=count_rs_source
+    source_code=count_rs_source,
 )
 
 plan_script = """

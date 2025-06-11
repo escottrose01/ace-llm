@@ -11,7 +11,7 @@ def main(query: str) -> str:
         folder_id=Configs.google_drive_folder,
         template="gdrive-query",
         num_results=2,
-        gdrive_token_path=Configs.gdrive_token_path
+        gdrive_token_path=Configs.gdrive_token_path,
     )
 
     # NOTE: this actually returns list[Document]

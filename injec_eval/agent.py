@@ -1,17 +1,16 @@
-from typing import Dict, Any
+import json
+import re
+from typing import Any
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_anthropic import ChatAnthropic
-import re
-import json
 
-from ace.sentinel_agent import AceAgent
-from ace.tools.manager import ToolManager
+from ace.execute.orchestrator import PlanOrchestrator
 from ace.plan.abstract import AbstractPlanner
 from ace.plan.concrete import SimpleConcretePlanner
-from ace.execute.orchestrator import PlanOrchestrator
 from ace.schema.concrete import CustomTool
+from ace.sentinel_agent import AceAgent
 from ace.tools.helper import parse_schemas_from_json
+from ace.tools.manager import ToolManager
 
 
 class InjecSentinelAgent(AceAgent):
@@ -19,47 +18,42 @@ class InjecSentinelAgent(AceAgent):
     An enchanced version of SentinelAgent, designed to run with InjecAgent benchmark.
     One instance per test (for now)
     """
+
     count = 0
     orch_error_count = 0
 
-    def __init__(self,
-                 abstract_planner: AbstractPlanner,
-                 user_tool_string: str,
-                 attacker_tool_strings: list[str],
-                 is_user_tool=True):
-
+    def __init__(
+        self,
+        abstract_planner: AbstractPlanner,
+        user_tool_string: str,
+        attacker_tool_strings: list[str],
+        is_user_tool=True,
+    ):
         # base_llm = ChatOpenAI(
         #     model="o3-mini",
         #     #openai_api_base="http://localhost:8000/v1"
         # )
-        base_llm = ChatOpenAI(
-            model="o3-mini"
-        )
+        base_llm = ChatOpenAI(model="o3-mini")
 
         embedding_model = OpenAIEmbeddings()
 
         self.skip_flag = user_tool_string in ("GmailSearchEmails")
 
         tools: list[CustomTool] = []
-        user_toolkit_name, user_tool_name = InjecSentinelAgent.split_tool(
-            user_tool_string)
+        user_toolkit_name, user_tool_name = InjecSentinelAgent.split_tool(user_tool_string)
 
-        new_tool = InjecSentinelAgent.impl_tool(
-            user_toolkit_name, user_tool_name, is_user_tool)
+        new_tool = InjecSentinelAgent.impl_tool(user_toolkit_name, user_tool_name, is_user_tool)
         tools.append(new_tool)
 
         for attacker_tool in attacker_tool_strings:
             toolkit, toolname = InjecSentinelAgent.split_tool(attacker_tool)
-            new_tool: CustomTool = InjecSentinelAgent.impl_tool(
-                toolkit, toolname, False)
+            new_tool: CustomTool = InjecSentinelAgent.impl_tool(toolkit, toolname, False)
             print(f"!!NEWTOOLNAME: {new_tool.name}")
             tools.append(new_tool)
         tool_manager = ToolManager(tools)
 
         concrete_planner = SimpleConcretePlanner(
-            tool_manager=tool_manager,
-            base_llm=base_llm,
-            embedding_model=embedding_model
+            tool_manager=tool_manager, base_llm=base_llm, embedding_model=embedding_model
         )
         self.actions: list = []
         self.final_code: str = ""
@@ -77,9 +71,7 @@ class InjecSentinelAgent(AceAgent):
 
         abstract_plan = self.abstract_planner.generate_abstract_plan(query)
 
-        matches = self.concrete_planner.generate_all_feasible_matches(
-            abstract_plan.abs_tools
-        )
+        matches = self.concrete_planner.generate_all_feasible_matches(abstract_plan.abs_tools)
 
         if debug:
             print("Matched tools:")
@@ -111,8 +103,7 @@ class InjecSentinelAgent(AceAgent):
 
         for key, value in tool_mapping.items():
             if debug:
-                print(
-                    f"The tool mapping (before orchestration): {value.as_dict()}")
+                print(f"The tool mapping (before orchestration): {value.as_dict()}")
 
         try:
             # TO BUILD:
@@ -169,36 +160,23 @@ class InjecSentinelAgent(AceAgent):
             param_name = param["name"]
             # Map the type directly (assumes standard types)
             param_type = param.get("type", "string")
-            request_properties[param_name] = {
-                "type": param_type,
-                "description": param.get("description", "")
-            }
+            request_properties[param_name] = {"type": param_type, "description": param.get("description", "")}
             if param.get("required", False):
                 request_required.append(param_name)
         # Process returns to build the "response" schema.
         returns = toolkit_function.get("returns", [])
         if len(returns) == 1:
             ret = returns[0]
-            response_schema = {
-                "type": ret.get("type", "string"),
-                "description": ret.get("description", "")
-            }
+            response_schema = {"type": ret.get("type", "string"), "description": ret.get("description", "")}
         else:
             response_properties = {}
             response_required = []
             for ret in returns:
                 ret_name = ret["name"]
                 ret_type = ret.get("type", "string")
-                response_properties[ret_name] = {
-                    "type": ret_type,
-                    "description": ret.get("description", "")
-                }
+                response_properties[ret_name] = {"type": ret_type, "description": ret.get("description", "")}
                 response_required.append(ret_name)
-            response_schema = {
-                "type": "object",
-                "properties": response_properties,
-                "required": response_required
-            }
+            response_schema = {"type": "object", "properties": response_properties, "required": response_required}
 
         # Build the overall JSON Schema.
         json_schema = {
@@ -209,17 +187,13 @@ class InjecSentinelAgent(AceAgent):
                     "type": "object",
                     "description": toolkit_function.get("summary", ""),
                     "properties": {
-                        "request": {
-                            "type": "object",
-                            "properties": request_properties,
-                            "required": request_required
-                        },
-                        "response": response_schema
+                        "request": {"type": "object", "properties": request_properties, "required": request_required},
+                        "response": response_schema,
                     },
-                    "required": ["request", "response"]
+                    "required": ["request", "response"],
                 }
             },
-            "required": [function_name]
+            "required": [function_name],
         }
 
         return json_schema
@@ -227,22 +201,43 @@ class InjecSentinelAgent(AceAgent):
     @staticmethod
     def split_tool(tool_str) -> tuple[str, str]:
         # Splits the tool into toolkit and tool name
-        exceptions = {"EvernoteManager", "GitHub", "GoogleCalendar", "BankManager",
-                      "TwitterManager", "GoogleHome", "FacebookManager", "DeepfakeGenerator",
-                      "The23andMe", "GoogleSearch", "WebBrowser", "NortonIdentitySafe",
-                      "AugustSmartLock", "IFTTT", "GoogleMap", "IndoorRobot", "EmergencyDispatchSystem",
-                      "EthereumManager", "FedExShipManager", "InventoryManagementSystem", "CiscoUmbrella", "EpicFHIR",
-                      "TrafficControl", "TDAmeritrade", "InvestmentManager"}
+        exceptions = {
+            "EvernoteManager",
+            "GitHub",
+            "GoogleCalendar",
+            "BankManager",
+            "TwitterManager",
+            "GoogleHome",
+            "FacebookManager",
+            "DeepfakeGenerator",
+            "The23andMe",
+            "GoogleSearch",
+            "WebBrowser",
+            "NortonIdentitySafe",
+            "AugustSmartLock",
+            "IFTTT",
+            "GoogleMap",
+            "IndoorRobot",
+            "EmergencyDispatchSystem",
+            "EthereumManager",
+            "FedExShipManager",
+            "InventoryManagementSystem",
+            "CiscoUmbrella",
+            "EpicFHIR",
+            "TrafficControl",
+            "TDAmeritrade",
+            "InvestmentManager",
+        }
 
         for exception in exceptions:
             if exception in tool_str:
-                return (exception, tool_str[len(exception):])
+                return (exception, tool_str[len(exception) :])
 
-        match = re.match(r'([A-Z][a-z]*)([A-Z].*)', tool_str)
+        match = re.match(r"([A-Z][a-z]*)([A-Z].*)", tool_str)
         return (match.group(1), match.group(2))
 
     @staticmethod
-    def generate_code(tool: Dict[str, Any], user: bool) -> str:
+    def generate_code(tool: dict[str, Any], user: bool) -> str:
         """
         Given a tool definition as a dictionary, returns a string containing a block of Python code.
         The code block defines a main() function with an argument for each parameter in the tool,
@@ -275,47 +270,46 @@ class InjecSentinelAgent(AceAgent):
 
         if user:
             function_block = (
-                "def main(" + ", ".join(arg_list) + "):\n" +
-                "    _result = " + str(InjecSentinelAgent.__get_func_impl(tool['name'])) + "\n" +
-                "    if isinstance(_result, dict) and len(_result) == 1:\n" +
-                "        return list(_result.values())[0]\n" +
-                "    else:\n" +
-                "        return _result\n"
+                "def main("
+                + ", ".join(arg_list)
+                + "):\n"
+                + "    _result = "
+                + str(InjecSentinelAgent.__get_func_impl(tool["name"]))
+                + "\n"
+                + "    if isinstance(_result, dict) and len(_result) == 1:\n"
+                + "        return list(_result.values())[0]\n"
+                + "    else:\n"
+                + "        return _result\n"
             )
         else:
-            with open('injec_eval/res/attacker_responses.json') as f:
+            with open("injec_eval/res/attacker_responses.json") as f:
                 cases: dict = json.load(f)
                 for key, value in cases.items():
                     tool_name = key.split(",")[0][1:]
                     if tool_name != tool["name"]:
                         continue
                     function_block = (
-                        "def main(" + ", ".join(arg_list) + "):\n" +
-                        f"    result = {value}\n"
-                        "    if isinstance(result, dict) and len(result) == 1:\n" +
-                        "        return list(result.values())[0]\n" +
-                        "    else:\n" +
-                        "        return result\n"
+                        "def main(" + ", ".join(arg_list) + "):\n" + f"    result = {value}\n"
+                        "    if isinstance(result, dict) and len(result) == 1:\n"
+                        + "        return list(result.values())[0]\n"
+                        + "    else:\n"
+                        + "        return result\n"
                     )
 
         if not function_block:
-            function_block = (
-                "def main():\n" +
-                "\treturn"
-            )
+            function_block = "def main():\n" + "\treturn"
 
         return function_block.strip()
 
     @staticmethod
     def __get_func_impl(tool_name: str) -> str:
-        with open('injec_eval/res/directharm.json') as f:
+        with open("injec_eval/res/directharm.json") as f:
             cases: list = json.load(f)
             for test in cases:
                 if test["User Tool"] != tool_name:
                     continue
                 response: str = test["Tool Response Template"]
-                response = response.replace(
-                    "<Attacker Instruction>", test["Attacker Instruction"])
+                response = response.replace("<Attacker Instruction>", test["Attacker Instruction"])
                 return response
 
     @staticmethod
@@ -329,31 +323,39 @@ class InjecSentinelAgent(AceAgent):
         NOTE: tool_name must not have toolkit_name in it (which is default in test cases)
         """
         tools: dict = {}
-        with open('injec_eval/res/tools.json', 'r') as f:
+        with open("injec_eval/res/tools.json") as f:
             toolkits = json.load(f)
             for toolkit_dict in toolkits:
                 if toolkit_dict["toolkit"] == toolkit_name:
                     tools = toolkit_dict["tools"]
                     for tool in tools:
-                        if tool['name'] == tool_name:
-                            tool['name'] = toolkit_name + tool_name
-                            signature = InjecSentinelAgent.translate_function_signature(
-                                tool)
+                        if tool["name"] == tool_name:
+                            tool["name"] = toolkit_name + tool_name
+                            signature = InjecSentinelAgent.translate_function_signature(tool)
 
-                            param_schema, return_schema = parse_schemas_from_json(
-                                signature)
+                            param_schema, return_schema = parse_schemas_from_json(signature)
                             if debug:
-                                print("Signature:", json.dumps(param_schema.model_json_schema(), indent=4),
-                                      json.dumps(return_schema.model_json_schema()), sep="\n")
-                            function = InjecSentinelAgent.generate_code(
-                                tool, user)
+                                print(
+                                    "Signature:",
+                                    json.dumps(param_schema.model_json_schema(), indent=4),
+                                    json.dumps(return_schema.model_json_schema()),
+                                    sep="\n",
+                                )
+                            function = InjecSentinelAgent.generate_code(tool, user)
                             if debug:
                                 print("Function:\n", function)
 
                             try:
-                                impl_tool = CustomTool(name=tool['name'], provider="InjecAgent", description=tool["summary"],
-                                                       permissions=set(), clearances=set(), args_schema=param_schema, output_schema=return_schema,
-                                                       source_code=function)
+                                impl_tool = CustomTool(
+                                    name=tool["name"],
+                                    provider="InjecAgent",
+                                    description=tool["summary"],
+                                    permissions=set(),
+                                    clearances=set(),
+                                    args_schema=param_schema,
+                                    output_schema=return_schema,
+                                    source_code=function,
+                                )
                             except Exception as e:
                                 print("Error with custom tool, moving on...")
                                 raise e
@@ -393,5 +395,4 @@ class InjecSentinelAgent(AceAgent):
                             """
                             return impl_tool
 
-        raise RuntimeError(
-            f"Could not find the given tools for {toolkit_name}, {tool_name}")
+        raise RuntimeError(f"Could not find the given tools for {toolkit_name}, {tool_name}")

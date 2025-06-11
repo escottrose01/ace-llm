@@ -1,9 +1,8 @@
 from pydantic import create_model
-
-from sentinel.tools.manager import ToolManager
-from sentinel.schema import AbstractPlan, AbstractTool
 from sentinel.execute import PlanOrchestrator
 from sentinel.plan.concrete import SchemaAdaptedTool
+from sentinel.schema import AbstractPlan, AbstractTool
+from sentinel.tools.manager import ToolManager
 
 
 def main():
@@ -14,10 +13,7 @@ def main():
     arg_schema = create_model("RideShareArgs", src=(str, ...), dst=(str, ...))
     output_schema = create_model("RideShareOutput", fare=(float, ...))
     abs_tool = AbstractTool(
-        name="RideShare",
-        description="Generic rideshare service",
-        args_schema=arg_schema,
-        output_schema=output_schema
+        name="RideShare", description="Generic rideshare service", args_schema=arg_schema, output_schema=output_schema
     )
 
     input_mapping = "def input_mapping(src, dst): return {'start_point': src, 'end_point': dst}"
@@ -35,7 +31,7 @@ def main():
         output_schema=abs_tool.output_schema,
         wrapped_tool=quickride,
         input_mapping_source=input_mapping,
-        output_mapping_source=output_mapping
+        output_mapping_source=output_mapping,
     )
 
     abs_tools = [
@@ -43,7 +39,7 @@ def main():
             name="RideShare",
             description="Generic rideshare service",
             args_schema=arg_schema,
-            output_schema=output_schema
+            output_schema=output_schema,
         )
     ]
 
@@ -56,9 +52,7 @@ def main():
 
     plan = AbstractPlan(script=plan_script, abs_tools=abs_tools)
 
-    tool_mapping = {
-        "RideShare": wrapped_quickride
-    }
+    tool_mapping = {"RideShare": wrapped_quickride}
 
     print("Abstract Plan script:")
     print(plan.script)
