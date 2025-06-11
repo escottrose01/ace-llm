@@ -1,5 +1,5 @@
 from agent import InjecSentinelAgent
-from sentinel.plan.abstract import AbstractPlanner
+from ace.plan.abstract import AbstractPlanner
 
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage

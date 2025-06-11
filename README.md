@@ -34,6 +34,60 @@ docker build -t tool-runner-image -f Dockerfile.tool .
 cd ../../
 ```
 
+
+
+## Development
+
+### Install dependencies
+
+#### Main dependencies
+```bash
+uv pip install -r pyproject.toml
+```
+
+#### Development dependencies
+```bash
+uv pip install -r pyproject.toml --group dev
+```
+
+#### Documentation dependencies
+```bash
+uv pip install -r pyproject.toml --group docs
+```
+
+### Lint and format code
+```bash
+uv pip run ruff check .
+uv pip run ruff format .
+```
+
+### Type checking
+```bash
+pyright
+```
+
+### Run tests
+```bash
+pytest
+```
+
+### JupyterLab (for experiments)
+```bash
+jupyter lab
+```
+
+## Documentation
+
+To build and serve the documentation locally:
+```bash
+mkdocs serve
+```
+
+To build static docs:
+```bash
+mkdocs build
+```
+
 ## Usage
 
 - To run in **interactive mode**, use:

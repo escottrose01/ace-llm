@@ -5,16 +5,16 @@ from langchain_anthropic import ChatAnthropic
 import re
 import json
 
-from sentinel.sentinel_agent import SentinelAgent
-from sentinel.tools.manager import ToolManager
-from sentinel.plan.abstract import AbstractPlanner
-from sentinel.plan.concrete import SimpleConcretePlanner
-from sentinel.execute.orchestrator import PlanOrchestrator
-from sentinel.schema.concrete import CustomTool
-from sentinel.tools.helper import parse_schemas_from_json
+from ace.sentinel_agent import AceAgent
+from ace.tools.manager import ToolManager
+from ace.plan.abstract import AbstractPlanner
+from ace.plan.concrete import SimpleConcretePlanner
+from ace.execute.orchestrator import PlanOrchestrator
+from ace.schema.concrete import CustomTool
+from ace.tools.helper import parse_schemas_from_json
 
 
-class InjecSentinelAgent(SentinelAgent):
+class InjecSentinelAgent(AceAgent):
     """
     An enchanced version of SentinelAgent, designed to run with InjecAgent benchmark.
     One instance per test (for now)

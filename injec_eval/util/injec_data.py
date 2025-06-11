@@ -1,7 +1,7 @@
 import json
 from agent import InjecSentinelAgent
-from sentinel.tools.helper import parse_schemas_from_json
-from sentinel.schema.concrete import CustomTool
+from ace.tools.helper import parse_schemas_from_json
+from ace.schema.concrete import CustomTool
 
 
 def fill_schema():

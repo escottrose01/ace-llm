@@ -1,0 +1,66 @@
+[project]
+name = "ace-llm"
+version = "0.1.0"
+description = "ACE: the Abstract-Concrete-Execute security architecture for LLM-integrated app systems."
+readme = "README.md"
+requires-python = ">=3.10.16"
+
+dependencies = [
+    "pygments>=2.19.1",
+    "langchain>=0.3.25",
+    "langchain_community>=0.3.25",
+    "langchain_openai>=0.3.22",
+    "langchain_anthropic>=0.3.15",
+    "faiss-cpu>=1.11.0",
+    "transformers>=4.52.4",
+    "tensorflow>=2.19.0",
+    "docker>=7.1.0",
+    "astor>=0.8.1",
+    "pydantic>=2.11.5"
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.4.4",
+    "pyright>=1.1.365",
+    "pytest>=8.0.2",
+    "python-dotenv>=1.0.1",
+    "types-pyyaml>=6.0.12.20240311",
+    "jupyterlab>=4.1.2",
+    "tiktoken>=0.7.0"
+]
+docs = [
+    "mkdocs-material>=9.5.26",
+    "mkdocstrings[python]>=0.25.1"
+]
+
+[tool.uv]
+managed = true
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = []
+select = [
+    "F",   # pyflakes
+    "UP",  # pyupgrade
+    "I",   # isort
+    "ERA", # eradicate
+    "NPY", # numpy
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "RUF",
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+ 
