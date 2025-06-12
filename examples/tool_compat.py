@@ -1,8 +1,9 @@
 from pydantic import create_model
-from sentinel.execute import PlanOrchestrator
-from sentinel.plan.concrete import SchemaAdaptedTool
-from sentinel.schema import AbstractPlan, AbstractTool
-from sentinel.tools.manager import ToolManager
+
+from ace.execute import PlanOrchestrator
+from ace.plan.concrete import SchemaAdaptedTool
+from ace.schema import AbstractPlan, AbstractTool
+from ace.tools.manager import ToolManager
 
 
 def main():

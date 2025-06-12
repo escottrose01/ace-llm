@@ -37,16 +37,13 @@ def extract_vars_from_expr(node: ast.expr) -> set[str]:
 def extract_vars_from_call(node: ast.Call) -> set[str]:
     if not isinstance(node.func, ast.Name):
         raise TypeError("Function call must be a variable name")
-
     args = node.args
     kwargs = node.keywords
-
     inputs = set()
     for arg in args:
         inputs |= extract_vars_from_expr(arg)
     for kwarg in kwargs:
         inputs |= extract_vars_from_expr(kwarg.value)
-
     return inputs
 
 
@@ -62,32 +59,22 @@ class FlowParser(ast.NodeVisitor):
 
     def parse(self, source_ast: ast.AST) -> Flow:
         self.flow = SequenceFlow([])
-
         main_defs = [node for node in source_ast.body if isinstance(node, ast.FunctionDef) and node.name == "main"]
-
         if len(main_defs) != 1:
             raise ValueError("There must be exactly one main() function")
-
         main_node = main_defs[0]
         for stmt in main_node.body:
             self.visit(stmt)
-
         return self.flow
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-        # Handle variable annotations (e.g., x: int = 0)
         if not isinstance(node.target, ast.Name):
             raise TypeError("Annotation target must be a variable name")
-
         outputs = {node.target.id}
         inputs = set(self.taint)
-
-        # If there's an initial value, extract variables from it
         if isinstance(node.value, ast.Call):
             if not isinstance(node.value.func, ast.Name):
                 raise TypeError("Function call must be a variable name")
-
-            # OK functions are treated as "pure"
             func_name = "+" if node.value.func.id in OK_FUNCTIONS else node.value.func.id
             inputs |= extract_vars_from_call(node.value)
         elif isinstance(node.value, ExprType):
@@ -95,7 +82,6 @@ class FlowParser(ast.NodeVisitor):
             inputs |= extract_vars_from_expr(node.value)
         else:
             raise TypeError("Annotation value must be a function call or expression")
-
         self.flow.flows.append(ExplicitFlow(outputs, inputs, func_name))
         self.generic_visit(node)
 
@@ -104,15 +90,11 @@ class FlowParser(ast.NodeVisitor):
             raise ValueError("Assignment must have exactly one target")
         if not isinstance(node.targets[0], ast.Name):
             raise TypeError("Assignment target must be a variable name")
-
         outputs = {node.targets[0].id}
         inputs = set(self.taint)
-
         if isinstance(node.value, ast.Call):
             if not isinstance(node.value.func, ast.Name):
                 raise TypeError("Function call must be a variable name")
-
-            # OK functions are treated as "pure"
             func_name = "+" if node.value.func.id in OK_FUNCTIONS else node.value.func.id
             inputs |= extract_vars_from_call(node.value)
         elif isinstance(node.value, ExprType):
@@ -120,22 +102,17 @@ class FlowParser(ast.NodeVisitor):
             inputs |= extract_vars_from_expr(node.value)
         else:
             raise TypeError("Assignment value must be a function call or expression")
-
         self.flow.flows.append(ExplicitFlow(outputs, inputs, func_name))
         self.generic_visit(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         if not isinstance(node.target, ast.Name):
             raise TypeError("Augmented assignment target must be a variable name")
-
         outputs = {node.target.id}
         inputs = set(self.taint)
-
         if isinstance(node.value, ast.Call):
             if not isinstance(node.value.func, ast.Name):
                 raise TypeError("Function call must be a variable name")
-
-            # OK functions are treated as "pure"
             func_name = "+" if node.value.func.id in OK_FUNCTIONS else node.value.func.id
             inputs |= extract_vars_from_call(node.value)
         elif isinstance(node.value, ExprType):
@@ -143,7 +120,6 @@ class FlowParser(ast.NodeVisitor):
             inputs |= extract_vars_from_expr(node.value)
         else:
             raise TypeError("Augmented assignment value must be an expression")
-
         self.flow.flows.append(ExplicitFlow(outputs, inputs, func_name))
         self.generic_visit(node)
 
@@ -156,11 +132,9 @@ class FlowParser(ast.NodeVisitor):
             self.flow.flows.append(ExplicitFlow([], inputs, func_name))
         else:
             raise TypeError("Standalone expressions must be a function call")
-
         self.generic_visit(node)
 
     def visit_For(self, node: ast.For) -> None:
-        # Enforce: for loop is of the form `for i in range(n)`
         if (
             not isinstance(node.iter, ast.Call)
             or not isinstance(node.iter.func, ast.Name)
@@ -169,42 +143,28 @@ class FlowParser(ast.NodeVisitor):
             or len(node.iter.args) != 1
         ):
             raise TypeError("For loop must be of the form `for i in range(n)`")
-
         if not isinstance(node.target, ast.Name):
             raise TypeError("For loop target must be a variable name")
         if len(node.target.id) != 1:
             raise ValueError("For loop target must be a single variable")
-
-        # Extract the loop variable
         loop_var = node.target.id
         loop_arg = node.iter.args[0]
-
-        # Store the current flow
         cur_flow = self.flow
-
-        # Create a flow for the loop condition
         loop_inputs = set(self.taint)
         if isinstance(loop_arg, ast.Name):
             loop_inputs |= {loop_arg.id}
         loop_flow = ExplicitFlow([loop_var], loop_inputs, "+")
         self.flow = SequenceFlow([loop_flow])
-
-        # Recursively visit the body of the for loop
         self.taint.append(loop_var)
         self.generic_visit(node)
         self.taint.pop()
-
-        # Append the repeating flow to the current flow
         cur_flow.flows.append(RepetitionFlow(self.flow))
         self.flow = cur_flow
 
     def visit_If(self, node: ast.If) -> None:
-        # Extract a unique identifier for the condition
         self.cond_counter += 1
         cond_id = f"&cond_{self.cond_counter}"
         cond = node.test
-
-        # Create a flow for the branch condition
         cond_inputs = set(self.taint)
         if isinstance(cond, ast.Call):
             cond_inputs |= extract_vars_from_call(cond)
@@ -216,22 +176,15 @@ class FlowParser(ast.NodeVisitor):
             raise TypeError(f"Unsupported condition type: {type(cond)}")
         cond_flow = ExplicitFlow([cond_id], cond_inputs, func_name)
         self.flow.flows.append(cond_flow)
-
-        # Recursively visit the body of the if statement
         self.taint.append(cond_id)
         self.generic_visit(node)
         self.taint.pop()
 
     def visit_While(self, node: ast.While) -> None:
-        # Extract a unique identifier for the condition
         self.cond_counter += 1
         cond_id = f"&cond_{self.cond_counter}"
         cond = node.test
-
-        # Store the current flow
         cur_flow = self.flow
-
-        # Create a flow for the branch condition
         cond_inputs = set(self.taint)
         if isinstance(cond, ast.Call):
             cond_inputs |= extract_vars_from_call(cond)
@@ -241,13 +194,9 @@ class FlowParser(ast.NodeVisitor):
             func_name = "+"
         cond_flow = ExplicitFlow([cond_id], cond_inputs, func_name)
         self.flow = SequenceFlow([cond_flow])
-
-        # Recursively visit the body of the while statement
         self.taint.append(cond_id)
         self.generic_visit(node)
         self.taint.pop()
-
-        # Append the repeating flow to the current flow
         cur_flow.flows.append(RepetitionFlow(self.flow))
         self.flow = cur_flow
 
@@ -265,7 +214,7 @@ class FlowAnalyzer:
 
     def __init__(self, memory: MemoryModel):
         self.memory = memory.clone()
-        self._violations = []  # list to record security or analysis violations
+        self._violations = []
 
     @property
     def violations(self) -> list[Violation]:
@@ -287,7 +236,6 @@ class FlowAnalyzer:
         joined_inputs = self.memory.lattice_type.bottom()
         for var in flow.inputs:
             joined_inputs = joined_inputs + self.get_label(var)
-
         if flow.function != "+":
             func_label = self.memory.static_vars.get(flow.function, self.memory.lattice_type.bottom())
             if not (joined_inputs <= func_label):
@@ -298,9 +246,7 @@ class FlowAnalyzer:
             extra = func_label
         else:
             extra = self.memory.lattice_type.bottom()
-
         combined = joined_inputs + extra
-
         for var in flow.outputs:
             current = self.get_label(var)
             new_label = current + combined
@@ -313,7 +259,6 @@ class FlowAnalyzer:
             for subflow in flow.flows:
                 self.analyze_flow(subflow)
         elif isinstance(flow, RepetitionFlow):
-            # For loops: perform fixpoint iteration until the dynamic labels stabilize.
             stable = False
             while not stable:
                 before = self.memory.clone()

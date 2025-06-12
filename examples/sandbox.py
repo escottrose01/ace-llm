@@ -2,9 +2,10 @@ import argparse
 import logging
 
 from pydantic import BaseModel
-from sentinel.execute.orchestrator import PlanOrchestrator
-from sentinel.schema.abstract import AbstractPlan
-from sentinel.schema.concrete import CustomTool
+
+from ace.execute.orchestrator import PlanOrchestrator
+from ace.schema.abstract import AbstractPlan
+from ace.schema.concrete import CustomTool
 
 
 class MultiplierArgs(BaseModel):
