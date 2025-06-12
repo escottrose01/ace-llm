@@ -1,3 +1,3 @@
-from . import abstract, concrete, infoflow
+from . import abstract, concrete
 
-__all__ = ["abstract", "concrete", "infoflow"]
+__all__ = ["abstract", "concrete"]

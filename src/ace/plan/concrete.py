@@ -15,7 +15,7 @@ from ..schema.concrete import ConcreteToolBase
 from ..schema.infoflow import MemoryModel
 from ..schema.lattice import SubsetLattice
 from ..tools.manager import ToolManager
-from .infoflow import FlowAnalyzer
+from ..security.infoflow import FlowAnalyzer
 
 
 class SchemaAdaptedTool(ConcreteToolBase):
