@@ -1,8 +1,8 @@
 import ast
 
-from sentinel.plan.infoflow import FlowAnalyzer, FlowParser
-from sentinel.schema.infoflow import MemoryModel
-from sentinel.schema.lattice import SubsetLattice
+from ace.security.infoflow import FlowAnalyzer, FlowParser
+from ace.schema.infoflow import MemoryModel
+from ace.schema.lattice import SubsetLattice
 
 system_config = MemoryModel(
     lattice_type=SubsetLattice,

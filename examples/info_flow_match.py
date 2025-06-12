@@ -3,9 +3,9 @@ import random
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pydantic import Field, create_model
-from sentinel.plan.concrete import InfoFlowPlanner
-from sentinel.schema import AbstractPlan, AbstractTool, CustomTool
-from sentinel.tools.manager import ToolManager
+from ace.plan.concrete import InfoFlowPlanner
+from ace.schema import AbstractPlan, AbstractTool, CustomTool
+from ace.tools.manager import ToolManager
 
 
 def main():
@@ -19,7 +19,7 @@ def main():
     load_file = [
         CustomTool(
             name=f"LoadFile_{tag}",
-            provider="SentinelCore",
+            provider="AceCore",
             description="Load a file from the local filesystem",
             clearances={tag},
             permissions=set(),
@@ -37,7 +37,7 @@ def main():
     send_email = [
         CustomTool(
             name=f"SendEmail_{tag}",
-            provider="SentinelCore",
+            provider="AceCore",
             description="Send an email to a specified recipient",
             clearances={tag},
             permissions=set(),

@@ -1,6 +1,6 @@
 import ast
 
-from sentinel.plan.infoflow import FlowParser
+from ace.security.infoflow import FlowParser
 
 # Test: simple linear flow
 source_code_0 = """

@@ -3,10 +3,10 @@ import json
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pydantic import Field, create_model
-from sentinel.execute import PlanOrchestrator
-from sentinel.plan.concrete import SimpleConcretePlanner
-from sentinel.schema import AbstractPlan, AbstractTool
-from sentinel.tools.manager import ToolManager
+from ace.execute import PlanOrchestrator
+from ace.plan.concrete import SimpleConcretePlanner
+from ace.schema import AbstractPlan, AbstractTool
+from ace.tools.manager import ToolManager
 
 
 def main():
