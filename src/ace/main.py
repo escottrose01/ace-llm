@@ -2,10 +2,10 @@ import argparse
 import logging
 
 from dotenv import load_dotenv
-from langchain_openai import OpenAIEmbeddings
 
 from ace.agent import AceAgent
 from ace.llm.base import create_llm
+from ace.llm.embeddings import EmbeddingsEnum, create_embedding
 from ace.llm.models import ModelsEnum
 from ace.plan.abstract import AbstractPlanner
 from ace.plan.concrete import InfoFlowPlanner
@@ -24,7 +24,7 @@ def main(args: argparse.Namespace):
 
     # Load LLMs and tool manager
     base_llm = create_llm(ModelsEnum.GPT_4O_MINI_2024_07_18, temperature=0.0)  # GPT-4o Mini (July 2024)
-    embedding_model = OpenAIEmbeddings()
+    embedding_model = create_embedding(EmbeddingsEnum.OPENAI_3_SMALL)
     tool_manager = ToolManager.from_manifest("tools/manifest.json")
 
     # TODO: clean up abstract Planner class

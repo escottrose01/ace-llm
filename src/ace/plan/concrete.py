@@ -120,7 +120,7 @@ class ConcretePlannerBase(ABC):
 class SimpleConcretePlanner(ConcretePlannerBase):
     tool_manager: ToolManager
     base_llm: BaseChatModel
-    embeddings: OpenAIEmbeddings
+    embeddings: OpenAIEmbeddings  # or a base embeddings protocol if available
     faiss_store: FAISS
     filter_threshold: float
     compat_chain: Runnable
