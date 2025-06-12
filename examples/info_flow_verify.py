@@ -1,8 +1,8 @@
 import ast
 
-from ace.security.infoflow import FlowAnalyzer, FlowParser
 from ace.schema.infoflow import MemoryModel
 from ace.schema.lattice import SubsetLattice
+from ace.security.infoflow import FlowAnalyzer, FlowParser
 
 system_config = MemoryModel(
     lattice_type=SubsetLattice,

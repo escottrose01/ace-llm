@@ -8,6 +8,7 @@ ExprType = ast.Name | ast.Constant | ast.BinOp | ast.Compare | ast.Subscript
 
 OK_FUNCTIONS = {"len", "abs", "min", "max"}
 
+
 def extract_vars_from_expr(node: ast.expr) -> set[str]:
     if isinstance(node, ast.Name):
         return {node.id}
@@ -32,6 +33,7 @@ def extract_vars_from_expr(node: ast.expr) -> set[str]:
     else:
         raise TypeError(f"Unsupported expression type: {type(node)}")
 
+
 def extract_vars_from_call(node: ast.Call) -> set[str]:
     if not isinstance(node.func, ast.Name):
         raise TypeError("Function call must be a variable name")
@@ -43,6 +45,7 @@ def extract_vars_from_call(node: ast.Call) -> set[str]:
     for kwarg in kwargs:
         inputs |= extract_vars_from_expr(kwarg.value)
     return inputs
+
 
 class FlowParser(ast.NodeVisitor):
     taint: list[str]
@@ -197,11 +200,13 @@ class FlowParser(ast.NodeVisitor):
         cur_flow.flows.append(RepetitionFlow(self.flow))
         self.flow = cur_flow
 
+
 @dataclass
 class Violation:
     flow: ExplicitFlow
     violating_inputs: set[str]
     state: MemoryModel
+
 
 class FlowAnalyzer:
     memory: MemoryModel
