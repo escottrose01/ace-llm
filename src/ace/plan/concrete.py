@@ -5,17 +5,18 @@ from abc import ABC, abstractmethod
 import astor
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 
 from ..prompts.concrete_templates import generate_tool_compatibility_json_template
 from ..schema.abstract import AbstractPlan, AbstractTool
 from ..schema.concrete import ConcreteToolBase
 from ..schema.infoflow import MemoryModel
 from ..schema.lattice import SubsetLattice
-from ..tools.manager import ToolManager
 from ..security.infoflow import FlowAnalyzer
+from ..tools.manager import ToolManager
 
 
 class SchemaAdaptedTool(ConcreteToolBase):
@@ -118,7 +119,7 @@ class ConcretePlannerBase(ABC):
 
 class SimpleConcretePlanner(ConcretePlannerBase):
     tool_manager: ToolManager
-    base_llm: ChatOpenAI
+    base_llm: BaseChatModel
     embeddings: OpenAIEmbeddings
     faiss_store: FAISS
     filter_threshold: float
@@ -128,7 +129,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
     def __init__(
         self,
         tool_manager: ToolManager,
-        base_llm: ChatOpenAI,
+        base_llm: BaseChatModel,
         embedding_model: OpenAIEmbeddings,
         filter_threshold: float = 0.8,
     ):

@@ -1,9 +1,9 @@
 import re
 
-from langchain.schema import AIMessage
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, create_model
 
 from ..prompts.abstract_templates import generate_abstract_plan_template, generate_abstract_tool_template
@@ -37,17 +37,18 @@ def create_pydantic_schema(fields: dict[str, dict[str, str]]) -> type[BaseModel]
 
 
 class AbstractPlanner:
-    base_llm: ChatOpenAI
+    base_llm: BaseChatModel
     toolgen_chain: Runnable
     plangen_chain: Runnable
 
-    def __init__(self):
-        self.base_llm = ChatOpenAI(model="gpt-4o-mini-2024-07-18", temperature=0.0)
+    def __init__(self, base_llm):
+        self.base_llm = base_llm
 
         toolgen_prompt = generate_abstract_tool_template()
         plangen_prompt = generate_abstract_plan_template()
         json_parser = JsonOutputParser()
 
+        # These chains will need to be updated to use the new LLM interface if they use .invoke
         self.toolgen_chain = toolgen_prompt | self.base_llm | json_parser
         self.plangen_chain = plangen_prompt | self.base_llm
 
