@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from ace.plan.abstract import AbstractPlanner
 from ace.plan.concrete import InfoFlowPlanner
-from ace.sentinel_agent import AceAgent
+from ace.agent import AceAgent
 from ace.tools.manager import ToolManager
 
 load_dotenv()

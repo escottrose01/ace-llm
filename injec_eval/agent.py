@@ -8,7 +8,7 @@ from ace.execute.orchestrator import PlanOrchestrator
 from ace.plan.abstract import AbstractPlanner
 from ace.plan.concrete import SimpleConcretePlanner
 from ace.schema.concrete import CustomTool
-from ace.sentinel_agent import AceAgent
+from ace.agent import AceAgent
 from ace.tools.helper import parse_schemas_from_json
 from ace.tools.manager import ToolManager
 
