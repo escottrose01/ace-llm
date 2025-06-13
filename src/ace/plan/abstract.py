@@ -6,8 +6,11 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field, create_model
 
+from ..logging_config import get_logger
 from ..prompts.abstract_templates import generate_abstract_plan_template, generate_abstract_tool_template
 from ..schema import AbstractPlan, AbstractTool
+
+logger = get_logger(__name__)
 
 
 def parse_text_to_python(text: str | AIMessage) -> str:
@@ -56,6 +59,7 @@ class AbstractPlanner:
     plangen_chain: Runnable
 
     def __init__(self, base_llm):
+        logger.info("Initializing AbstractPlanner")
         self.base_llm = base_llm
 
         toolgen_prompt = generate_abstract_tool_template()
@@ -68,30 +72,78 @@ class AbstractPlanner:
 
         # Last generated tools. Used for test trials
         self.tools = {}
+        logger.debug("AbstractPlanner initialization completed")
 
     def generate_abstract_tools(self, query) -> dict:
-        output = self.toolgen_chain.invoke({"input": query})
-        return output
+        logger.debug(f"Generating abstract tools for query: {query[:100]}...")
+        logger.log_query(query)
+
+        try:
+            output = self.toolgen_chain.invoke({"input": query})
+            logger.info(f"Generated {len(output.get('apps', []))} abstract tools")
+            logger.debug(f"Abstract tools: {[app.get('name', 'unnamed') for app in output.get('apps', [])]}")
+
+            # Log full tool definitions using structured logging
+            for i, app in enumerate(output.get("apps", [])):
+                tool_name = app.get("name", "unnamed")
+                logger.log_structured("info", f"ABSTRACT_TOOL_{i + 1}", f"name={tool_name}")
+                logger.log_structured("debug", f"ABSTRACT_TOOL_{i + 1}_FULL", str(app))
+
+            return output
+        except Exception as e:
+            logger.error(f"Failed to generate abstract tools: {e}", exc_info=True)
+            raise
 
     def generate_abstract_plan(self, query):
+        logger.info("Starting abstract plan generation")
+
+        # Generate abstract tools first
         abstract_tools = self.generate_abstract_tools(query)
         self.tools = abstract_tools
-        abstract_plan = self.plangen_chain.invoke({"input": query, "tools": abstract_tools})
 
+        # Generate the plan using the tools
+        logger.debug("Generating plan script using abstract tools")
+        try:
+            abstract_plan = self.plangen_chain.invoke({"input": query, "tools": abstract_tools})
+            logger.debug("Plan script generation completed")
+
+            # Log the raw plan output using structured logging
+            logger.log_raw_llm_output("abstract_plan", str(abstract_plan))
+
+        except Exception as e:
+            logger.error(f"Failed to generate abstract plan script: {e}", exc_info=True)
+            raise
+
+        # Convert tools to AbstractTool objects
         abstract_tool_list = []
-        for tool in abstract_tools["apps"]:
-            input_ = tool.get("input", tool.get("inputs"))
-            output_ = tool.get("output", tool.get("outputs"))
-            tool_input_schema = create_pydantic_schema(input_)
-            tool_output_schema = create_pydantic_schema({"output": output_})
-
-            abstract_tool = AbstractTool(
-                name=tool["name"],
-                description=tool["description"],
-                args_schema=tool_input_schema,
-                output_schema=tool_output_schema,
+        for i, tool in enumerate(abstract_tools["apps"]):
+            logger.debug(
+                f"Processing abstract tool {i + 1}/{len(abstract_tools['apps'])}: {tool.get('name', 'unnamed')}"
             )
+            try:
+                input_ = tool.get("input", tool.get("inputs"))
+                output_ = tool.get("output", tool.get("outputs"))
+                tool_input_schema = create_pydantic_schema(input_)
+                tool_output_schema = create_pydantic_schema({"output": output_})
 
-            abstract_tool_list.append(abstract_tool)
+                abstract_tool = AbstractTool(
+                    name=tool["name"],
+                    description=tool["description"],
+                    args_schema=tool_input_schema,
+                    output_schema=tool_output_schema,
+                )
 
-        return AbstractPlan(script=parse_text_to_python(abstract_plan), abs_tools=abstract_tool_list)
+                abstract_tool_list.append(abstract_tool)
+                logger.debug(f"Successfully created AbstractTool: {tool['name']}")
+            except Exception as e:
+                logger.error(f"Failed to create AbstractTool for {tool.get('name', 'unnamed')}: {e}")
+                raise
+
+        parsed_script = parse_text_to_python(abstract_plan)
+        logger.info(f"Abstract plan generation completed with {len(abstract_tool_list)} tools")
+        logger.debug(f"Script length: {len(parsed_script)} characters")
+
+        # Log the final abstract plan using enhanced logger
+        logger.log_plan(parsed_script, abstract_tool_list)
+
+        return AbstractPlan(script=parsed_script, abs_tools=abstract_tool_list)

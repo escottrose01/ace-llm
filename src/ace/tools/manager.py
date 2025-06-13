@@ -1,26 +1,31 @@
 import json
-import logging
 from pathlib import Path
 from typing import Any
 
+from ..logging_config import get_logger
 from ..schema import ConcreteToolBase, CustomTool, LangChainTool, Permission
 from .helper import parse_schemas_from_json
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ToolManager:
     tools: list[ConcreteToolBase]
 
     def __init__(self, tools: list[ConcreteToolBase]):
+        logger.info(f"Initializing ToolManager with {len(tools)} tools")
         self.tools = tools
+        logger.debug(f"Available tools: {[tool.name for tool in tools]}")
 
     def get_by_name(self, name: str) -> ConcreteToolBase:
+        logger.debug(f"Looking up tool by name: {name}")
         # yeah yeah, I know.
         for tool in self.tools:
             if tool.name == name:
+                logger.debug(f"Found tool: {name}")
                 return tool
 
+        logger.error(f"Tool {name} not found in available tools: {[tool.name for tool in self.tools]}")
         raise ValueError(f"Tool {name} not found.")
 
     @classmethod
@@ -31,18 +36,30 @@ class ToolManager:
             manifest_path = Path(manifest_path)
 
         if not manifest_path.exists():
+            logger.error(f"Manifest file {manifest_path} not found")
             raise FileNotFoundError(f"Manifest file {manifest_path} not found.")
 
-        with open(manifest_path) as f:
-            manifest = json.load(f)
+        logger.info(f"Loading tools from manifest: {manifest_path}")
 
-        for item in manifest:
+        try:
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+            logger.debug(f"Manifest loaded with {len(manifest)} tool definitions")
+        except Exception as e:
+            logger.error(f"Failed to read manifest file: {e}", exc_info=True)
+            raise
+
+        for i, item in enumerate(manifest):
             try:
+                tool_name = item.get("name", f"tool_{i}")
+                logger.debug(f"Instantiating tool {i + 1}/{len(manifest)}: {tool_name}")
                 tool = instantiate_tool_from_manifest(item, manifest_path)
                 tools.append(tool)
+                logger.debug(f"Successfully loaded tool: {tool_name}")
             except Exception as e:
-                logger.warning(f"Error instantiating tool {item['name']}: {e}")
+                logger.warning(f"Error instantiating tool {item.get('name', 'unknown')}: {e}")
 
+        logger.info(f"Successfully loaded {len(tools)} tools from manifest")
         return cls(tools)
 
 

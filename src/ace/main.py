@@ -1,14 +1,12 @@
-import logging
-
 import click
 from dotenv import load_dotenv
 
 from ace.llm.embeddings import EmbeddingsEnum
 from ace.llm.models import ModelsEnum
+from ace.logging_config import get_logger, setup_logging
 from ace.setup import AppConfig, setup_app
 
 load_dotenv()
-logger = logging.getLogger(__name__)
 
 
 @click.command()
@@ -20,13 +18,19 @@ logger = logging.getLogger(__name__)
 @click.option("--very-verbose", "-vv", is_flag=True, help="Enable very verbose logging")
 def cli(llm_model, embedding_model, tool_manifest, temperature, verbose, very_verbose):
     """Run the ACE agent CLI."""
-    # Set up logging
+    # Set up comprehensive logging
     if very_verbose:
-        logging.basicConfig(level=logging.DEBUG)
+        log_level = "DEBUG"
     elif verbose:
-        logging.basicConfig(level=logging.INFO)
+        log_level = "INFO"
     else:
-        logging.basicConfig(level=logging.WARNING)
+        log_level = "WARNING"
+
+    # Configure logging to write to ace.log and optionally to console
+    setup_logging(log_level=log_level, log_file="ace.log", console_output=verbose or very_verbose)
+
+    logger = get_logger(__name__)
+    logger.info(f"Starting ACE CLI with model={llm_model}, temp={temperature}, manifest={tool_manifest}")
 
     # Map string to enum (fallback to value if not found)
     llm_enum = (
@@ -45,15 +49,28 @@ def cli(llm_model, embedding_model, tool_manifest, temperature, verbose, very_ve
     )
     agent = setup_app(config)
 
+    logger.info("ACE agent initialized successfully")
+    logger.info(f"Agent configuration: LLM={config.llm_model.value}, Embedding={config.embedding_model.value}")
+
     click.echo("ACE agent CLI. Type your query and press Enter. Ctrl+C to exit.")
     while True:
         try:
             query = click.prompt("Query")
         except (EOFError, KeyboardInterrupt):
             click.echo("\nExiting.")
+            logger.info("CLI session ended by user")
             break
-        agent.run_query(query)
-        logger.debug(f"Most recent output: {agent.output_log[-1]}")
+
+        logger.info(f"Processing query: {query}")
+        try:
+            result = agent.run_query(query)
+            logger.info("Query completed successfully")
+            logger.debug(f"Query result type: {type(result).__name__}")
+            if hasattr(agent, "output_log") and agent.output_log:
+                logger.debug(f"Most recent output: {agent.output_log[-1]}")
+        except Exception as e:
+            logger.error(f"Query failed with error: {e}", exc_info=True)
+            click.echo(f"Error: {e}")
 
 
 if __name__ == "__main__":
