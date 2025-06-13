@@ -46,7 +46,7 @@ class DummyOrchestrator:
         pass
 
 
-@patch("src.ace.agent.PlanOrchestrator", DummyOrchestrator)
+@patch("src.ace.agent.ace_agent.PlanOrchestrator", DummyOrchestrator)
 def test_ace_agent_run_query():
     agent = AceAgent(DummyAbstractPlanner(), DummyConcretePlanner())
     result = agent.run_query("test query")
