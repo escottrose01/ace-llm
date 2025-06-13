@@ -32,6 +32,7 @@ dependencies = [
     { name = "langchain-openai" },
     { name = "pydantic" },
     { name = "pygments" },
+    { name = "rich" },
     { name = "tensorflow" },
     { name = "transformers" },
 ]
@@ -65,6 +66,7 @@ requires-dist = [
     { name = "langchain-openai", specifier = ">=0.3.22" },
     { name = "pydantic", specifier = ">=2.11.5" },
     { name = "pygments", specifier = ">=2.19.1" },
+    { name = "rich", specifier = ">=13.9.0" },
     { name = "tensorflow", specifier = ">=2.19.0" },
     { name = "transformers", specifier = ">=4.52.4" },
 ]

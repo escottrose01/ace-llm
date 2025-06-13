@@ -1,6 +1,7 @@
 import click
 from dotenv import load_dotenv
 
+from ace.cli_formatter import CLIFormatter
 from ace.llm.embeddings import EmbeddingsEnum
 from ace.llm.models import ModelsEnum
 from ace.logging_config import get_logger, setup_logging
@@ -32,6 +33,9 @@ def cli(llm_model, embedding_model, tool_manifest, temperature, verbose, very_ve
     logger = get_logger(__name__)
     logger.info(f"Starting ACE CLI with model={llm_model}, temp={temperature}, manifest={tool_manifest}")
 
+    # Initialize CLI formatter
+    formatter = CLIFormatter()
+
     # Map string to enum (fallback to value if not found)
     llm_enum = (
         ModelsEnum(llm_model) if llm_model in ModelsEnum._value2member_map_ else ModelsEnum.GPT_4O_MINI_2024_07_18
@@ -52,25 +56,44 @@ def cli(llm_model, embedding_model, tool_manifest, temperature, verbose, very_ve
     logger.info("ACE agent initialized successfully")
     logger.info(f"Agent configuration: LLM={config.llm_model.value}, Embedding={config.embedding_model.value}")
 
-    click.echo("ACE agent CLI. Type your query and press Enter. Ctrl+C to exit.")
+    # Display welcome banner and configuration
+    formatter.print_welcome_banner()
+    formatter.print_configuration(
+        llm_model=config.llm_model.value,
+        embedding_model=config.embedding_model.value,
+        manifest=tool_manifest,
+        temperature=temperature,
+    )
+
     while True:
         try:
-            query = click.prompt("Query")
+            query = formatter.print_query_prompt()
         except (EOFError, KeyboardInterrupt):
-            click.echo("\nExiting.")
+            formatter.print_exit_message()
             logger.info("CLI session ended by user")
             break
 
         logger.info(f"Processing query: {query}")
         try:
-            result = agent.run_query(query)
+            # Create a progress spinner for query processing
+            with formatter.create_progress_spinner("Processing query...") as progress:
+                task = progress.add_task("Processing query...", total=None)
+                result = agent.run_query(query)
+                progress.update(task, completed=100)
+
+            formatter.print_success("Query completed successfully")
             logger.info("Query completed successfully")
             logger.debug(f"Query result type: {type(result).__name__}")
             if hasattr(agent, "output_log") and agent.output_log:
                 logger.debug(f"Most recent output: {agent.output_log[-1]}")
         except Exception as e:
             logger.error(f"Query failed with error: {e}", exc_info=True)
-            click.echo(f"Error: {e}")
+            error_msg = str(e)
+            if "No valid tool mapping found" in error_msg:
+                context = "The abstract plan was generated successfully, but no concrete tools could be matched to execute it. This may indicate that the required tools are not available in your manifest."
+                formatter.print_error_with_context(f"Query failed: {error_msg}", context)
+            else:
+                formatter.print_error(f"Query failed: {error_msg}")
 
 
 if __name__ == "__main__":
