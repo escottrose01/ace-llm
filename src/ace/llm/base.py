@@ -25,7 +25,7 @@ def create_llm(model: ModelsEnum, **kwargs: Any) -> BaseChatModel:
     if provider == "openai" or provider == "vllm":
         return ChatOpenAI(model=model.value, **kwargs)
     elif provider == "anthropic":
-        return ChatAnthropic(model=model.value, **kwargs)
+        return ChatAnthropic(model_name=model.value, **kwargs)
     elif provider == "meta":
         raise NotImplementedError("Meta/Llama provider support not yet implemented. Please add your backend.")
     else:

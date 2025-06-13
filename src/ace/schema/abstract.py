@@ -31,7 +31,7 @@ class ToolCallTransformer(ast.NodeTransformer):
         self.generic_visit(node)
         if isinstance(node.func, ast.Name) and node.func.id in self.tool_functions:
             # Replace call: foo(arg1, arg2, ...) with invoke("foo", arg1, arg2, ...)
-            new_args = [ast.Constant(value=node.func.id)]
+            new_args: list[ast.expr] = [ast.Constant(value=node.func.id)]
             new_args.extend(node.args)
             new_node = ast.Call(func=ast.Name(id="invoke", ctx=ast.Load()), args=new_args, keywords=node.keywords)
             return ast.copy_location(new_node, node)
@@ -47,7 +47,7 @@ class AbstractPlan(BaseModel):
         prog = ast.parse(self.script)
         return prog
 
-    def compile_for_protocol(self) -> ast.Module:
+    def compile_for_protocol(self) -> str:
         prog = ast.parse(self.script)
 
         # Replace function calls with invoke statements

@@ -95,6 +95,7 @@ def handle_client(client_socket, address):
 
 
 def handle_write(addr, message):
+    client_socket = None
     try:
         print("attempting to write to", addr)
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -105,7 +106,8 @@ def handle_write(addr, message):
     except Exception as e:
         print(f"[-] Error sending message to {addr}: {e}")
     finally:
-        client_socket.close()
+        if client_socket:
+            client_socket.close()
 
 
 def main() -> None:
@@ -123,10 +125,10 @@ def main() -> None:
         sys.exit(1)
 
     # Execute script
+    local_ns = {}
     try:
         code = compile(ast.parse(script, mode="exec"), filename="<script>", mode="exec")
 
-        local_ns = {}
         exec(code, globals(), local_ns)
     except Exception as e:
         e_msg = f"Error executing script: {e}"

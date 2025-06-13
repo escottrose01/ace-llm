@@ -36,6 +36,9 @@ class SchemaAdaptedTool(ConcreteToolBase):
         else:
             raise ValueError("Tool source must contain a main() function.")
 
+        if not self.args_schema:
+            raise ValueError("Tool must have args_schema defined")
+
         field_names = list(self.args_schema.model_fields.keys())
 
         input_mapping = ast.parse(self.input_mapping_source).body[0]
@@ -48,7 +51,7 @@ class SchemaAdaptedTool(ConcreteToolBase):
         main_body.append(output_mapping)
 
         # Map input fields to inner input
-        input_args = [ast.Name(id=field, ctx=ast.Load()) for field in field_names]
+        input_args: list[ast.expr] = [ast.Name(id=field, ctx=ast.Load()) for field in field_names]
         assign_inner_input = ast.Assign(
             targets=[ast.Name(id="inner_input", ctx=ast.Store())],
             value=ast.Call(func=ast.Name(id="input_mapping", ctx=ast.Load()), args=input_args, keywords=[]),
@@ -90,6 +93,9 @@ class SchemaAdaptedTool(ConcreteToolBase):
             ),
             body=main_body,
             decorator_list=[],
+            returns=None,
+            type_comment=None,
+            type_params=[],
         )
 
         # Create a new module containing the adapted tool
@@ -108,12 +114,12 @@ class ConcretePlannerBase(ABC):
         pass
 
     @abstractmethod
-    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase]:
+    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         pass
 
     @property
     @abstractmethod
-    def results():
+    def results(self) -> list[dict]:
         pass
 
 
@@ -197,11 +203,13 @@ class SimpleConcretePlanner(ConcretePlannerBase):
     def results(self) -> list[dict]:
         return self._results
 
-    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase]:
+    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         # Naive: just pick the first match for each tool
         concrete_tools = []
         for abstract_tool in plan.abs_tools:
             matches = self.generate_matches_for_tool(abstract_tool)
+            if not matches:
+                return None  # No matches available for this tool
             concrete_tools.append(matches[0])
 
         return {
@@ -210,14 +218,15 @@ class SimpleConcretePlanner(ConcretePlannerBase):
 
     def _generate_tool_embeddings(self):
         tool_documents = [
-            Document(page_content=tool.description, metadata={"name": tool.name}) for tool in self.tool_manager.tools
+            Document(page_content=tool.description or "", metadata={"name": tool.name})
+            for tool in self.tool_manager.tools
         ]
 
         self.faiss_store = FAISS.from_documents(tool_documents, self.embeddings)
 
 
 class InfoFlowPlanner(SimpleConcretePlanner):
-    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase]:
+    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         matches = [self.generate_matches_for_tool(abstract_tool) for abstract_tool in plan.abs_tools]
 
         for proposal in itertools.product(*matches):
@@ -240,4 +249,5 @@ class InfoFlowPlanner(SimpleConcretePlanner):
                     abstract_tool.name: concrete_tool for abstract_tool, concrete_tool in zip(plan.abs_tools, proposal)
                 }
 
+        # If no valid proposal found, return None
         return None

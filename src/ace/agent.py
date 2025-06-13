@@ -24,11 +24,14 @@ class AceAgent:
         self.tool_use_history = []
         self.output_log = []
 
-    def run_query(self, query: str) -> str:
+    def run_query(self, query: str) -> Any:
         logger.info(f"Running query: {query}")
 
         abstract_plan = self.abstract_planner.generate_abstract_plan(query)
         tool_mapping = self.concrete_planner.implement_plan(abstract_plan)
+
+        if tool_mapping is None:
+            raise RuntimeError("No valid tool mapping found for the given plan")
 
         # Display the generated abstract tools and plan, and the matching
         print("\n" + "=" * 10, "ABSTRACT TOOLS", "=" * 10)

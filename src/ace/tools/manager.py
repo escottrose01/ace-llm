@@ -81,8 +81,11 @@ def instantiate_tool_from_manifest(item: dict[str, Any], manifest_path: Path) ->
         return LangChainTool(
             name=name,
             provider="LangChain Community",
+            description=None,  # Will be inferred by model_validator
             clearances=clearances,
             permissions=permissions,
+            args_schema=None,  # Will be inferred by model_validator
+            output_schema=None,  # Will be inferred by model_validator
             function_name=item["function_name"],
         )
     else:

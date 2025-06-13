@@ -55,7 +55,8 @@ class PlanOrchestrator:
 
     def join(self) -> None:
         try:
-            self.listener_thread.join()
+            if self.listener_thread:
+                self.listener_thread.join()
         finally:
             self.kill()
         if not self.exception_queue.empty():
@@ -78,19 +79,22 @@ class PlanOrchestrator:
 
         try:
             self.tool_execution_sandbox.launch(tool_args, tool_kwargs)
-            self.toolrunner_ids.add(self.tool_execution_sandbox.id)
+            if self.tool_execution_sandbox:
+                self.toolrunner_ids.add(self.tool_execution_sandbox.id)
         except Exception as e:
             logger.error(f"Failed to execute tool {tool_name}: {e}")
             self.exception_queue.put(ValueError(f"Failed to execute tool {tool_name}: {e}"))
             error = "Tool failed to start."
             error_b64 = base64.b64encode(error.encode()).decode()
-            self.plan_execution_sandbox.send(f"ERROR:{error_b64}")
+            if self.plan_execution_sandbox:
+                self.plan_execution_sandbox.send(f"ERROR:{error_b64}")
 
     def handle_print(self, message: str) -> None:
         print("PRINT:", message)
 
     def handle_terminate(self) -> None:
-        self.plan_execution_sandbox.kill()
+        if self.plan_execution_sandbox:
+            self.plan_execution_sandbox.kill()
         self.shutdown.set()
 
     def __handle_client(self, client_socket: socket.socket, addr: tuple[str, int]) -> None:
@@ -106,7 +110,8 @@ class PlanOrchestrator:
                 logger.debug(f"Received message from {addr}: {message}")
                 id, message = message.split(":", 1)
 
-                if id == self.plan_execution_sandbox.id:
+                plan_id = self.plan_execution_sandbox.id if self.plan_execution_sandbox else None
+                if id == plan_id:
                     if message.startswith("INVOKE:"):
                         msg_b64 = message[len("INVOKE:") :]
                         msg_json = base64.b64decode(msg_b64).decode()
@@ -117,7 +122,7 @@ class PlanOrchestrator:
                         msg_str = base64.b64decode(msg_b64).decode()
                         if "Error executing tool code" in message:
                             exception = RuntimeError(message)
-                            self.plan_execution_sandbox.put(exception)
+                            self.exception_queue.put(exception)
                             raise exception
                         self.handle_print(msg_str)
                     elif message.startswith("TERMINATE"):
@@ -134,16 +139,20 @@ class PlanOrchestrator:
                 elif id in self.toolrunner_ids:
                     if message.startswith("RESULT:"):
                         result_b64 = message[len("RESULT:") :]
-                        self.tool_execution_sandbox.kill()
+                        if self.tool_execution_sandbox:
+                            self.tool_execution_sandbox.kill()
 
                         # Encode result and send to worker
-                        self.plan_execution_sandbox.send(f"RESPONSE:{result_b64}")
+                        if self.plan_execution_sandbox:
+                            self.plan_execution_sandbox.send(f"RESPONSE:{result_b64}")
                     elif message.startswith("ERROR:"):
                         error = message[len("ERROR:") :]
                         error_b64 = base64.b64encode(error.encode()).decode()
-                        self.tool_execution_sandbox.kill()
+                        if self.tool_execution_sandbox:
+                            self.tool_execution_sandbox.kill()
 
-                        self.plan_execution_sandbox.send(f"ERROR:{error_b64}")
+                        if self.plan_execution_sandbox:
+                            self.plan_execution_sandbox.send(f"ERROR:{error_b64}")
                         exception = RuntimeError("Error in execution:" + str(error))
                         self.exception_queue.put(exception)
                         raise exception

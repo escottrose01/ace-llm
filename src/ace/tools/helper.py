@@ -6,13 +6,7 @@ from pydantic import BaseModel, Field, create_model
 
 
 def generate_langchain_tool_source(tool: LangchainTool) -> str:
-    tool_name = tool.__class__.__name__
-    import_stmt = f"from langchain.tools import {tool_name}\n"
-
-    # TODO: borrow from https://github.com/letta-ai/letta/blob/a1a2dd44f57ff868d46e7e4bc517e4d299185771/letta/functions/helpers.py#L104
-
-    source_code = None
-    return source_code
+    raise NotImplementedError("Langchain tools not yet supported in ACE.")
 
 
 def json_schema_to_base_model(schema: dict[str, Any]) -> type[BaseModel]:
@@ -32,7 +26,7 @@ def json_schema_to_base_model(schema: dict[str, Any]) -> type[BaseModel]:
     required_fields = schema.get("required", [])
     model_fields = {}
 
-    def process_field(field_name: str, field_props: dict[str, Any]) -> tuple[type, Field]:
+    def process_field(field_name: str, field_props: dict[str, Any]) -> tuple[Any, Any]:
         """
         Recursively processes a field and returns its type and a Pydantic Field instance.
         """
@@ -54,9 +48,9 @@ def json_schema_to_base_model(schema: dict[str, Any]) -> type[BaseModel]:
         elif json_type == "array" and "items" in field_props:
             item_props = field_props["items"]
             if item_props.get("type") == "object":
-                item_type: type[BaseModel] = json_schema_to_base_model(item_props)
+                item_type = json_schema_to_base_model(item_props)
             else:
-                item_type: type = type_mapping.get(item_props.get("type"), Any)
+                item_type = type_mapping.get(item_props.get("type"), Any)
             field_type = list[item_type]
         else:
             field_type = type_mapping.get(json_type, Any)
@@ -97,7 +91,7 @@ def parse_schemas_from_json(schema: dict[str, Any]) -> tuple[type[BaseModel], ty
     if not top_level_props:
         raise ValueError("The schema must contain a 'properties' key.")
 
-    tool_key = list(top_level_props.keys())[0]
+    tool_key = next(iter(top_level_props.keys()))
     tool_schema = top_level_props[tool_key]
     tool_properties = tool_schema.get("properties", {})
 

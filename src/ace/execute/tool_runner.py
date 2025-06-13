@@ -14,6 +14,7 @@ ORCHESTRATOR_ADDR = (ORCHESTRATOR_IP, ORCHESTRATOR_PORT)
 
 
 def handle_write(addr, message):
+    client_socket = None
     try:
         print("attempting to write to", addr)
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -25,7 +26,8 @@ def handle_write(addr, message):
     except Exception as e:
         print(f"[-] Error sending message to {addr}: {e}")
     finally:
-        client_socket.close()
+        if client_socket:
+            client_socket.close()
 
 
 def main() -> None:
