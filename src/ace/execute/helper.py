@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def write_to_socket(addr: tuple[str, int], message: str) -> None:
+    client_socket = None
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(addr)
@@ -15,7 +16,8 @@ def write_to_socket(addr: tuple[str, int], message: str) -> None:
     except Exception as e:
         logger.error(f"Error sending {message} to {addr}: {e}")
     finally:
-        client_socket.close()
+        if client_socket:
+            client_socket.close()
 
 
 def safe_container_cleanup(container: docker.models.containers.Container) -> None:

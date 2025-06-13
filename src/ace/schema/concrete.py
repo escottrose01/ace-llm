@@ -30,8 +30,8 @@ class ConcreteToolBase(BaseModel, ABC):
         return {
             "name": self.name,
             "description": self.description,
-            "args_schema": self.args_schema.model_json_schema(),
-            "output_schema": self.output_schema.model_json_schema(),
+            "args_schema": self.args_schema.model_json_schema() if self.args_schema else {},
+            "output_schema": self.output_schema.model_json_schema() if self.output_schema else {},
         }
 
     def as_json(self) -> str:
@@ -102,7 +102,6 @@ class LangChainTool(ConcreteToolBase):
         else:
             output_schema = create_model(f"{function_name}Output")
 
-        # data["description"] = "TODO: get description from langchain_community.tools"
         data["description"] = func.__doc__
         data["args_schema"] = args_schema
         data["output_schema"] = output_schema

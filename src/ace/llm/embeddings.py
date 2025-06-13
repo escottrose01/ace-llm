@@ -39,7 +39,6 @@ def create_embedding(model: EmbeddingsEnum, **kwargs: Any):
     # TODO: need to debug what's going on here with similarity score error
     provider = EMBEDDING_PROVIDERS[model]
     if provider == "openai":
-        # return OpenAIEmbeddings(model=model.value, **kwargs)
         return OpenAIEmbeddings()
     # Add more providers here
     else:

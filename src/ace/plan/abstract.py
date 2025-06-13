@@ -12,7 +12,21 @@ from ..schema import AbstractPlan, AbstractTool
 
 def parse_text_to_python(text: str | AIMessage) -> str:
     if isinstance(text, AIMessage):
-        text = text.content
+        content = text.content
+        if isinstance(content, list):
+            # Extract text from list of content pieces
+            text_parts = []
+            for item in content:
+                if isinstance(item, str):
+                    text_parts.append(item)
+                elif isinstance(item, dict) and "text" in item:
+                    text_parts.append(str(item["text"]))
+            text = " ".join(text_parts)
+        elif isinstance(content, str):
+            text = content
+        else:
+            text = str(content)
+
     pattern = r"```(?:python)?\n(.*?)```"
     match = re.search(pattern, text, re.DOTALL)
     if match:

@@ -25,7 +25,7 @@ def extract_vars_from_expr(node: ast.expr) -> set[str]:
             comparators |= extract_vars_from_expr(comparator)
         return left | comparators
     elif isinstance(node, ast.Subscript):
-        if not isinstance(node.value, (ast.Name, ast.Constant)):
+        if not isinstance(node.value, ast.Name | ast.Constant):
             raise TypeError("Subscript base must be a variable name or constant")
         base = {node.value.id} if isinstance(node.value, ast.Name) else set()
         index = extract_vars_from_expr(node.slice)
@@ -48,18 +48,18 @@ def extract_vars_from_call(node: ast.Call) -> set[str]:
 
 
 class FlowParser(ast.NodeVisitor):
-    taint: list[str]
-    flow: Flow
-    cond_counter: int
-
     def __init__(self):
-        self.taint = []
-        self.flow = None
+        self.taint: list[str] = []
+        self.flow: SequenceFlow | None = None
         self.cond_counter = 0
 
     def parse(self, source_ast: ast.AST) -> Flow:
         self.flow = SequenceFlow([])
-        main_defs = [node for node in source_ast.body if isinstance(node, ast.FunctionDef) and node.name == "main"]
+        if not hasattr(source_ast, "body"):
+            raise ValueError("AST must have a body attribute")
+        # Type assertion to help type checker understand we have a Module
+        body = getattr(source_ast, "body")
+        main_defs = [node for node in body if isinstance(node, ast.FunctionDef) and node.name == "main"]
         if len(main_defs) != 1:
             raise ValueError("There must be exactly one main() function")
         main_node = main_defs[0]
@@ -82,7 +82,9 @@ class FlowParser(ast.NodeVisitor):
             inputs |= extract_vars_from_expr(node.value)
         else:
             raise TypeError("Annotation value must be a function call or expression")
-        self.flow.flows.append(ExplicitFlow(outputs, inputs, func_name))
+        if self.flow is None:
+            raise ValueError("Flow not initialized")
+        self.flow.flows.append(ExplicitFlow(list(outputs), list(inputs), func_name))
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
@@ -102,7 +104,9 @@ class FlowParser(ast.NodeVisitor):
             inputs |= extract_vars_from_expr(node.value)
         else:
             raise TypeError("Assignment value must be a function call or expression")
-        self.flow.flows.append(ExplicitFlow(outputs, inputs, func_name))
+        if self.flow is None:
+            raise ValueError("Flow not initialized")
+        self.flow.flows.append(ExplicitFlow(list(outputs), list(inputs), func_name))
         self.generic_visit(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
@@ -120,7 +124,9 @@ class FlowParser(ast.NodeVisitor):
             inputs |= extract_vars_from_expr(node.value)
         else:
             raise TypeError("Augmented assignment value must be an expression")
-        self.flow.flows.append(ExplicitFlow(outputs, inputs, func_name))
+        if self.flow is None:
+            raise ValueError("Flow not initialized")
+        self.flow.flows.append(ExplicitFlow(list(outputs), list(inputs), func_name))
         self.generic_visit(node)
 
     def visit_Expr(self, node: ast.Expr) -> None:
@@ -129,7 +135,9 @@ class FlowParser(ast.NodeVisitor):
                 raise TypeError("Function call must be a variable name")
             func_name = node.value.func.id
             inputs = extract_vars_from_call(node.value) | set(self.taint)
-            self.flow.flows.append(ExplicitFlow([], inputs, func_name))
+            if self.flow is None:
+                raise ValueError("Flow not initialized")
+            self.flow.flows.append(ExplicitFlow([], list(inputs), func_name))
         else:
             raise TypeError("Standalone expressions must be a function call")
         self.generic_visit(node)
@@ -153,11 +161,13 @@ class FlowParser(ast.NodeVisitor):
         loop_inputs = set(self.taint)
         if isinstance(loop_arg, ast.Name):
             loop_inputs |= {loop_arg.id}
-        loop_flow = ExplicitFlow([loop_var], loop_inputs, "+")
+        loop_flow = ExplicitFlow([loop_var], list(loop_inputs), "+")
         self.flow = SequenceFlow([loop_flow])
         self.taint.append(loop_var)
         self.generic_visit(node)
         self.taint.pop()
+        if cur_flow is None:
+            raise ValueError("Flow not initialized")
         cur_flow.flows.append(RepetitionFlow(self.flow))
         self.flow = cur_flow
 
@@ -168,13 +178,15 @@ class FlowParser(ast.NodeVisitor):
         cond_inputs = set(self.taint)
         if isinstance(cond, ast.Call):
             cond_inputs |= extract_vars_from_call(cond)
-            func_name = cond.func.id
+            func_name = cond.func.id if isinstance(cond.func, ast.Name) else "+"
         elif isinstance(cond, ExprType):
             cond_inputs |= extract_vars_from_expr(cond)
             func_name = "+"
         else:
             raise TypeError(f"Unsupported condition type: {type(cond)}")
-        cond_flow = ExplicitFlow([cond_id], cond_inputs, func_name)
+        cond_flow = ExplicitFlow([cond_id], list(cond_inputs), func_name)
+        if self.flow is None:
+            raise ValueError("Flow not initialized")
         self.flow.flows.append(cond_flow)
         self.taint.append(cond_id)
         self.generic_visit(node)
@@ -186,17 +198,20 @@ class FlowParser(ast.NodeVisitor):
         cond = node.test
         cur_flow = self.flow
         cond_inputs = set(self.taint)
+        func_name = "+"  # Default value
         if isinstance(cond, ast.Call):
             cond_inputs |= extract_vars_from_call(cond)
-            func_name = cond.func.id
+            func_name = cond.func.id if isinstance(cond.func, ast.Name) else "+"
         elif isinstance(cond, ExprType):
             cond_inputs |= extract_vars_from_expr(cond)
             func_name = "+"
-        cond_flow = ExplicitFlow([cond_id], cond_inputs, func_name)
+        cond_flow = ExplicitFlow([cond_id], list(cond_inputs), func_name)
         self.flow = SequenceFlow([cond_flow])
         self.taint.append(cond_id)
         self.generic_visit(node)
         self.taint.pop()
+        if cur_flow is None:
+            raise ValueError("Flow not initialized")
         cur_flow.flows.append(RepetitionFlow(self.flow))
         self.flow = cur_flow
 

@@ -46,7 +46,11 @@ managed = true
 line-length = 120
 
 [tool.ruff.lint]
-ignore = []
+ignore = [
+    "N802",  # Function name should be lowercase (AST visitor methods must be visit_*)
+    "N805",  # First argument of a method should be named `self` (Pydantic validators use `cls`)
+    "UP007", # Use X | Y for type annotations (complex types don't work well with this)
+]
 select = [
     "F",   # pyflakes
     "UP",  # pyupgrade

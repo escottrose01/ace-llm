@@ -38,7 +38,7 @@ class PlanExecutionSandbox:
     def launch(self) -> None:
         # Prepare container inputs
         plan_code = self.plan.compile_for_protocol()
-        plan_code_b64 = base64.b64encode(plan_code.encode())
+        plan_code_b64 = base64.b64encode(plan_code.encode()).decode()
         docker_env = {"SCRIPT": plan_code_b64}
 
         # Spawn plan execution container
@@ -60,7 +60,7 @@ class PlanExecutionSandbox:
         while True:
             self.container.reload()
             ports = self.container.ports.get("8080/tcp")
-            if ports and ports[0].get("HostPort"):
+            if ports and len(ports) > 0 and ports[0].get("HostPort"):
                 self.port_ready.set()
                 break
             if self.container.status == "exited":
@@ -99,9 +99,14 @@ class PlanExecutionSandbox:
 
     @property
     def port(self) -> int:
+        if not self.container:
+            raise RuntimeError("Container not launched")
         if not self.container.ports:
             raise RuntimeError("Container port not open")
-        return int(self.container.ports["8080/tcp"][0]["HostPort"])
+        ports = self.container.ports.get("8080/tcp")
+        if not ports:
+            raise RuntimeError("Port mapping not found")
+        return int(ports[0]["HostPort"])
 
     @property
     def ip(self) -> str:
@@ -113,7 +118,12 @@ class PlanExecutionSandbox:
 
     @property
     def id(self) -> str:
-        return self.container.id[:12]
+        if not self.container:
+            raise RuntimeError("Container not launched")
+        container_id = self.container.id
+        if not container_id:
+            raise RuntimeError("Container ID not available")
+        return container_id[:12]
 
 
 class ToolExecutionSandbox:
@@ -132,9 +142,9 @@ class ToolExecutionSandbox:
         src_code = self.tool.generate_source()
         kwargs_json = json.dumps(kwargs)
         args_json = json.dumps(args)
-        src_code_b64 = base64.b64encode(src_code.encode())
-        args_b64 = base64.b64encode(args_json.encode())
-        kwargs_b64 = base64.b64encode(kwargs_json.encode())
+        src_code_b64 = base64.b64encode(src_code.encode()).decode()
+        args_b64 = base64.b64encode(args_json.encode()).decode()
+        kwargs_b64 = base64.b64encode(kwargs_json.encode()).decode()
         docker_env = {
             "TOOL_CODE": src_code_b64,
             "ARGS": args_b64,
@@ -177,10 +187,19 @@ class ToolExecutionSandbox:
         # TODO: conform output to tool output schema
         if not self.container:
             raise RuntimeError("Container not launched")
-        output_b64 = self.container.logs().decode()
+        logs = self.container.logs()
+        if isinstance(logs, bytes):
+            output_b64 = logs.decode()
+        else:
+            output_b64 = str(logs)
         output = json.loads(base64.b64decode(output_b64).decode())
         return output
 
     @property
     def id(self) -> str:
-        return self.container.id[:12]
+        if not self.container:
+            raise RuntimeError("Container not launched")
+        container_id = self.container.id
+        if not container_id:
+            raise RuntimeError("Container ID not available")
+        return container_id[:12]
