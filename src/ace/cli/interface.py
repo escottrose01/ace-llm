@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from ace.llm.embeddings import EmbeddingsEnum
 from ace.llm.models import ModelsEnum
 from ace.logging_config import get_logger, setup_logging
+from ace.schema.handler_registry import create_development_registry
 from ace.setup import AppConfig, setup_app
 
 from .formatter import CLIFormatter
@@ -52,7 +53,10 @@ def cli(llm_model, embedding_model, tool_manifest, temperature, verbose, very_ve
         tool_manifest=tool_manifest,
         temperature=temperature,
     )
-    agent = setup_app(config)
+
+    # Create development registry with CLI, logging, and debug handlers
+    registry = create_development_registry()
+    agent = setup_app(config, registry)
 
     logger.info("ACE agent initialized successfully")
     logger.info(f"Agent configuration: LLM={config.llm_model.value}, Embedding={config.embedding_model.value}")

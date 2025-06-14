@@ -119,15 +119,24 @@ def test_plan_orchestrator_print_handling():
     """Test orchestrator print message handling"""
     plan = MagicMock()
     tools = {}
-    orchestrator = PlanOrchestrator(plan, tools)
 
-    # Test handle_print - should not raise any errors
+    # Test with no event handler - should fall back to print
+    orchestrator = PlanOrchestrator(plan, tools)
     test_message = "Test print message"
 
     # Mock print to capture output
     with patch("builtins.print") as mock_print:
         orchestrator.handle_print(test_message)
         mock_print.assert_called_with("PRINT:", test_message)
+
+    # Test with event handler
+    mock_event_handler = MagicMock()
+    orchestrator_with_handler = PlanOrchestrator(plan, tools, event_handler=mock_event_handler)
+
+    orchestrator_with_handler.handle_print(test_message)
+    mock_event_handler.on_execution_output.assert_called_once()
+    call_args = mock_event_handler.on_execution_output.call_args[0][0]
+    assert call_args.message == test_message
 
 
 def test_plan_orchestrator_terminate_handling():

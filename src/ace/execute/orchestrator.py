@@ -8,6 +8,7 @@ from typing import Any
 from ..logging_config import get_logger
 from ..schema.abstract import AbstractPlan
 from ..schema.concrete import ConcreteToolBase
+from ..schema.events import AgentEventHandler, ExecutionOutputEvent
 from .sandbox import PlanExecutionSandbox, ToolExecutionSandbox
 
 logger = get_logger(__name__)
@@ -24,8 +25,14 @@ class PlanOrchestrator:
     exception_queue: Queue
     result: Any | None
     tool_use_history: list[str]
+    event_handler: AgentEventHandler | None
 
-    def __init__(self, plan: AbstractPlan, tools: dict[str, ConcreteToolBase]):
+    def __init__(
+        self,
+        plan: AbstractPlan,
+        tools: dict[str, ConcreteToolBase],
+        event_handler: AgentEventHandler | None = None,
+    ):
         logger.info("Initializing PlanOrchestrator")
         self.plan = plan
         self.tools = tools
@@ -37,6 +44,7 @@ class PlanOrchestrator:
         self.exception_queue = Queue()
         self.result = None
         self.tool_use_history = []
+        self.event_handler = event_handler
 
         logger.debug(f"Plan has {len(plan.abs_tools)} abstract tools")
         logger.debug(f"Tool mapping has {len(tools)} concrete tools")
@@ -156,7 +164,11 @@ class PlanOrchestrator:
 
     def handle_print(self, message: str) -> None:
         logger.debug(f"Received PRINT message: {message[:100]}...")
-        print("PRINT:", message)
+        if self.event_handler:
+            self.event_handler.on_execution_output(ExecutionOutputEvent(message))
+        else:
+            # Fallback to simple print if no event handler provided
+            print("PRINT:", message)
 
     def handle_terminate(self) -> None:
         logger.info("Received TERMINATE message")

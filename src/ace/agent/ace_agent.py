@@ -1,10 +1,20 @@
 from typing import Any
 
-from ..cli.formatter import CLIFormatter
 from ..execute.orchestrator import PlanOrchestrator
 from ..logging_config import get_logger
 from ..plan.abstract import AbstractPlanner
 from ..plan.concrete import ConcretePlannerBase
+from ..schema.events import (
+    AbstractToolsGeneratedEvent,
+    AgentEventHandler,
+    ExecutionCompletedEvent,
+    ExecutionStartedEvent,
+    NullEventHandler,
+    PlanGeneratedEvent,
+    ToolMappingFailedEvent,
+    ToolMappingGeneratedEvent,
+)
+from ..schema.handler_registry import HandlerRegistry
 
 logger = get_logger(__name__)
 
@@ -14,22 +24,36 @@ class AceAgent:
     concrete_planner: ConcretePlannerBase
     tool_use_history: list[str]
     output_log: list[Any]
-    formatter: CLIFormatter
+    event_registry: HandlerRegistry
 
     def __init__(
         self,
         abstract_planner: AbstractPlanner,
         concrete_planner: ConcretePlannerBase,
+        event_registry: HandlerRegistry | AgentEventHandler | None = None,
     ):
         logger.info("Initializing AceAgent")
         self.abstract_planner = abstract_planner
         self.concrete_planner = concrete_planner
         self.tool_use_history = []
         self.output_log = []
-        self.formatter = CLIFormatter()
+
+        # Support both HandlerRegistry and single AgentEventHandler for backward compatibility
+        if isinstance(event_registry, HandlerRegistry):
+            self.event_registry = event_registry
+        elif event_registry is not None:
+            # Convert single handler to registry
+            self.event_registry = HandlerRegistry("compat")
+            self.event_registry.register(event_registry)
+        else:
+            # Create empty registry with null handler
+            self.event_registry = HandlerRegistry("empty")
+            self.event_registry.register(NullEventHandler())
+
         logger.debug("AceAgent initialization completed")
         logger.debug(f"Abstract planner: {type(abstract_planner).__name__}")
         logger.debug(f"Concrete planner: {type(concrete_planner).__name__}")
+        logger.debug(f"Event registry: {self.event_registry}")
 
     def run_query(self, query: str) -> Any:
         logger.log_query(query)
@@ -45,12 +69,9 @@ class AceAgent:
             logger.error(f"Failed to generate abstract plan: {e}", exc_info=True)
             raise
 
-        # Always display the generated abstract tools and plan first
-        self.formatter.print_section_header("ABSTRACT TOOLS", "bright_cyan")
-        self.formatter.print_abstract_tools(abstract_plan.abs_tools)
-
-        self.formatter.print_section_header("PLAN", "bright_green")
-        self.formatter.print_plan(abstract_plan.script)
+        # Always emit events for the generated abstract tools and plan
+        self.event_registry.on_abstract_tools_generated(AbstractToolsGeneratedEvent(abstract_plan.abs_tools))
+        self.event_registry.on_plan_generated(PlanGeneratedEvent(abstract_plan))
         logger.log_plan(abstract_plan.script, abstract_plan.abs_tools)
 
         # Phase 2: Generate concrete plan (tool mapping)
@@ -59,32 +80,31 @@ class AceAgent:
             tool_mapping = self.concrete_planner.implement_plan(abstract_plan)
             if tool_mapping is None:
                 logger.error("No valid tool mapping found for the given plan")
-                # Show what we tried to map before failing
-                self.formatter.print_section_header("TOOL MAPPING", "bright_yellow")
-                self.formatter.print_tool_mapping({})
-                raise RuntimeError("No valid tool mapping found for the given plan")
+                # Emit tool mapping failed event
+                error = RuntimeError("No valid tool mapping found for the given plan")
+                self.event_registry.on_tool_mapping_failed(ToolMappingFailedEvent(error, {}))
+                raise error
 
             logger.info(f"Tool mapping generated with {len(tool_mapping)} concrete tools")
             logger.debug(f"Concrete tools: {list(tool_mapping.keys())}")
         except Exception as e:
             if "No valid tool mapping found" not in str(e):
-                # Show empty mapping for other errors too
-                self.formatter.print_section_header("TOOL MAPPING", "bright_yellow")
-                self.formatter.print_tool_mapping({})
+                # Emit tool mapping failed event for other errors too
+                self.event_registry.on_tool_mapping_failed(ToolMappingFailedEvent(e, {}))
             logger.error(f"Failed to generate tool mapping: {e}", exc_info=True)
             raise
 
-        self.formatter.print_section_header("TOOL MAPPING", "bright_yellow")
-        self.formatter.print_tool_mapping(tool_mapping)
+        self.event_registry.on_tool_mapping_generated(ToolMappingGeneratedEvent(tool_mapping))
         for tool_name, tool in tool_mapping.items():
             logger.log_tool_match(tool_name, tool.name)
 
-        self.formatter.print_execution_start()
+        self.event_registry.on_execution_started(ExecutionStartedEvent(abstract_plan, tool_mapping))
 
         # Phase 3: Execute the plan
         logger.info("Phase 3: Executing plan")
         try:
-            with PlanOrchestrator(abstract_plan, tool_mapping) as orchestrator:
+            # Pass the event registry directly to the orchestrator instead of creating a callback
+            with PlanOrchestrator(abstract_plan, tool_mapping, event_handler=self.event_registry) as orchestrator:
                 logger.debug("Plan orchestrator created")
                 orchestrator.launch()
                 logger.debug("Plan orchestrator launched")
@@ -101,7 +121,7 @@ class AceAgent:
             logger.error(f"Plan execution failed: {e}", exc_info=True)
             raise
 
-        self.formatter.print_execution_complete(result)
+        self.event_registry.on_execution_completed(ExecutionCompletedEvent(result))
 
         # Store results
         self.output_log.append(result)

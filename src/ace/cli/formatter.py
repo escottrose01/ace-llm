@@ -183,3 +183,15 @@ class CLIFormatter:
             console=self.console,
             transient=True,
         )
+
+    def print_execution_output(self, message: str):
+        """Display formatted execution output from the plan."""
+        # Create a nicely formatted panel for the output
+        output_panel = Panel(
+            message,
+            title="[bold bright_cyan]Plan Output[/bold bright_cyan]",
+            border_style="bright_cyan",
+            padding=(0, 1),
+            width=80,
+        )
+        self.console.print(output_panel)

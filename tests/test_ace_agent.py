@@ -27,9 +27,10 @@ class DummyConcretePlanner:
 
 
 class DummyOrchestrator:
-    def __init__(self, plan, tool_mapping):
+    def __init__(self, plan, tool_mapping, event_handler=None):
         self.plan = plan
         self.tool_mapping = tool_mapping
+        self.event_handler = event_handler
         self.result = "success"
         self.tool_use_history = ["dummy"]
 
