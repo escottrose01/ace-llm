@@ -1,18 +1,62 @@
-from . import abstract, concrete, infoflow, lattice, permissions
+from . import abstract, concrete, events, handler_registry, infoflow, lattice, permissions
 from .abstract import AbstractPlan, AbstractTool
 from .concrete import ConcreteToolBase, CustomTool, LangChainTool
+from .events import (
+    AbstractToolsGeneratedEvent,
+    AgentEventHandler,
+    ExecutionCompletedEvent,
+    ExecutionOutputEvent,
+    ExecutionStartedEvent,
+    NullEventHandler,
+    PlanGeneratedEvent,
+    ToolMappingFailedEvent,
+    ToolMappingGeneratedEvent,
+)
+from .handler_registry import (
+    CaptureEventHandler,
+    DebugEventHandler,
+    HandlerRegistry,
+    LoggingEventHandler,
+    MetricsEventHandler,
+    create_development_registry,
+    create_production_registry,
+    create_registry,
+    get_global_registry,
+    register_handler,
+)
 from .permissions import Permission
 
 __all__ = [
     "AbstractPlan",
     "AbstractTool",
+    "AbstractToolsGeneratedEvent",
+    "AgentEventHandler",
+    "CaptureEventHandler",
     "ConcreteToolBase",
     "CustomTool",
+    "DebugEventHandler",
+    "ExecutionCompletedEvent",
+    "ExecutionOutputEvent",
+    "ExecutionStartedEvent",
+    "HandlerRegistry",
     "LangChainTool",
+    "LoggingEventHandler",
+    "MetricsEventHandler",
+    "NullEventHandler",
     "Permission",
+    "PlanGeneratedEvent",
+    "ToolMappingFailedEvent",
+    "ToolMappingGeneratedEvent",
     "abstract",
     "concrete",
+    "create_development_registry",
+    "create_production_registry",
+    "create_registry",
+    "events",
+    "get_global_registry",
+    "handler_registry",
     "infoflow",
     "lattice",
     "permissions",
+    "register_handler",
 ]
