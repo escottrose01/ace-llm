@@ -96,9 +96,9 @@ class CLIFormatter:
     def print_tool_mapping(self, tool_mapping: dict[str, Any]):
         """Display tool mapping in a formatted table."""
         if not tool_mapping:
-            no_mapping_text = Text("⚠ No concrete tools could be mapped", style="bold yellow")
+            failed_mapping_text = Text("System failed to produce a complete tool mapping", style="bold yellow")
             no_mapping_panel = Panel(
-                no_mapping_text, title="[yellow]Tool Mapping[/yellow]", border_style="yellow", padding=(1, 2)
+                failed_mapping_text, title="[yellow]Tool Mapping[/yellow]", border_style="yellow", padding=(1, 2)
             )
             self.console.print(no_mapping_panel)
             return

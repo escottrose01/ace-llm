@@ -92,10 +92,8 @@ def cli(llm_model, embedding_model, tool_manifest, temperature, verbose, very_ve
             if hasattr(agent, "output_log") and agent.output_log:
                 logger.debug(f"Most recent output: {agent.output_log[-1]}")
         except Exception as e:
-            logger.error(f"Query failed with error: {e}", exc_info=True)
             error_msg = str(e)
-            if "No valid tool mapping found" in error_msg:
-                context = "The abstract plan was generated successfully, but no concrete tools could be matched to execute it. This may indicate that the required tools are not available in your manifest."
-                formatter.print_error_with_context(f"Query failed: {error_msg}", context)
-            else:
-                formatter.print_error(f"Query failed: {error_msg}")
+            logger.error(f"Query failed with internal error: {e}", exc_info=True)
+            formatter.print_error(
+                f"Query failed with an internal runtime error: {error_msg}\nPlease check the logs for details."
+            )

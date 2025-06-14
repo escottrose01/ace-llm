@@ -88,9 +88,6 @@ class AceAgent:
             logger.info(f"Tool mapping generated with {len(tool_mapping)} concrete tools")
             logger.debug(f"Concrete tools: {list(tool_mapping.keys())}")
         except Exception as e:
-            if "No valid tool mapping found" not in str(e):
-                # Emit tool mapping failed event for other errors too
-                self.event_registry.on_tool_mapping_failed(ToolMappingFailedEvent(e, {}))
             logger.error(f"Failed to generate tool mapping: {e}", exc_info=True)
             raise
 
