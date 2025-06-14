@@ -178,7 +178,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
             logger.info(f"Found {len(hit_names)} potential matches: {hit_names}")
         except Exception as e:
             logger.error(f"Embedding search failed: {e}", exc_info=True)
-            return []
+            raise
 
         # Conform concrete tools to abstract tool schema
         abs_tool_json = abstract_tool.as_json()
@@ -187,67 +187,63 @@ class SimpleConcretePlanner(ConcretePlannerBase):
 
         for i, tool_name in enumerate(hit_names):
             logger.debug(f"Evaluating compatibility {i + 1}/{len(hit_names)}: {tool_name}")
-            try:
-                concrete_tool = self.tool_manager.get_by_name(tool_name)
-                if concrete_tool is None:
-                    logger.warning(f"Tool {tool_name} not found in tool manager")
+
+            concrete_tool = self.tool_manager.get_by_name(tool_name)
+            if concrete_tool is None:
+                logger.warning(f"Tool {tool_name} not found in tool manager")
+                continue
+
+            concrete_tool_json = concrete_tool.as_json()
+            result = self.compat_chain.invoke({"abstract_tool": abs_tool_json, "concrete_tool": concrete_tool_json})
+
+            self._results.append(result)
+            logger.debug(f"Compatibility result for {tool_name}: {result.get('status', 'unknown')}")
+
+            if result["status"] == "success":
+                input_mapping = result.get("input_mapping")
+                output_mapping = result.get("output_mapping")
+
+                if not input_mapping or not output_mapping:
+                    logger.warning(
+                        f"Missing mapping for {tool_name}: input={bool(input_mapping)}, output={bool(output_mapping)}"
+                    )
                     continue
 
-                concrete_tool_json = concrete_tool.as_json()
-                result = self.compat_chain.invoke({"abstract_tool": abs_tool_json, "concrete_tool": concrete_tool_json})
+                # TODO: pydantic kind of requires constructor to use all fields
+                # but we should see if we can make this cleaner with validators
+                adapted_tool = SchemaAdaptedTool(
+                    name=concrete_tool.name,
+                    provider=concrete_tool.provider,
+                    description=concrete_tool.description,
+                    clearances=concrete_tool.clearances,
+                    permissions=concrete_tool.permissions,
+                    args_schema=abstract_tool.args_schema,
+                    output_schema=abstract_tool.output_schema,
+                    wrapped_tool=concrete_tool,
+                    input_mapping_source=input_mapping,
+                    output_mapping_source=output_mapping,
+                )
+                tools.append(adapted_tool)
+                logger.debug(f"Successfully adapted tool: {tool_name}")
 
-                self._results.append(result)
-                logger.debug(f"Compatibility result for {tool_name}: {result.get('status', 'unknown')}")
-
-                if result["status"] == "success":
-                    input_mapping = result.get("input_mapping")
-                    output_mapping = result.get("output_mapping")
-
-                    if not input_mapping or not output_mapping:
-                        logger.warning(
-                            f"Missing mapping for {tool_name}: input={bool(input_mapping)}, output={bool(output_mapping)}"
-                        )
-                        continue
-
-                    # TODO: pydantic kind of requires constructor to use all fields
-                    # but we should see if we can make this cleaner with validators
-                    adapted_tool = SchemaAdaptedTool(
-                        name=concrete_tool.name,
-                        provider=concrete_tool.provider,
-                        description=concrete_tool.description,
-                        clearances=concrete_tool.clearances,
-                        permissions=concrete_tool.permissions,
-                        args_schema=abstract_tool.args_schema,
-                        output_schema=abstract_tool.output_schema,
-                        wrapped_tool=concrete_tool,
-                        input_mapping_source=input_mapping,
-                        output_mapping_source=output_mapping,
+                # Log detailed tool adaptation using structured logging
+                logger.log_tool_match(
+                    abstract_tool.name,
+                    tool_name,
+                    {"input_mapping": input_mapping, "output_mapping": output_mapping},
+                )
+                try:
+                    source_preview = (
+                        adapted_tool.generate_source()[:500] + "..."
+                        if len(adapted_tool.generate_source()) > 500
+                        else adapted_tool.generate_source()
                     )
-                    tools.append(adapted_tool)
-                    logger.debug(f"Successfully adapted tool: {tool_name}")
-
-                    # Log detailed tool adaptation using structured logging
-                    logger.log_tool_match(
-                        abstract_tool.name,
-                        tool_name,
-                        {"input_mapping": input_mapping, "output_mapping": output_mapping},
-                    )
-                    try:
-                        source_preview = (
-                            adapted_tool.generate_source()[:500] + "..."
-                            if len(adapted_tool.generate_source()) > 500
-                            else adapted_tool.generate_source()
-                        )
-                        logger.log_structured("debug", f"TOOL_SOURCE_{tool_name}", source_preview)
-                    except Exception as e:
-                        logger.warning(f"Could not generate source preview: {e}")
-                else:
-                    logger.debug(f"Tool {tool_name} rejected: {result.get('reason', 'unknown reason')}")
-                    logger.log_structured("debug", f"TOOL_COMPAT_FAILED_{tool_name}", str(result))
-
-            except Exception as e:
-                logger.error(f"Error processing tool {tool_name}: {e}", exc_info=True)
-                continue
+                    logger.log_structured("debug", f"TOOL_SOURCE_{tool_name}", source_preview)
+                except Exception as e:
+                    logger.warning(f"Could not generate source preview: {e}")
+            else:
+                logger.debug(f"Tool {tool_name} rejected: {result.get('reason', 'unknown reason')}")
+                logger.log_structured("debug", f"TOOL_COMPAT_FAILED_{tool_name}", str(result))
 
         logger.info(f"Generated {len(tools)} compatible tools for abstract tool {abstract_tool.name}")
 
@@ -275,7 +271,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
             logger.debug(f"Finding implementation for tool {i + 1}/{len(plan.abs_tools)}: {abstract_tool.name}")
             matches = self.generate_matches_for_tool(abstract_tool)
             if not matches:
-                logger.error(f"No matches found for abstract tool: {abstract_tool.name}")
+                logger.info(f"No matches found for abstract tool: {abstract_tool.name}")
                 return None  # No matches available for this tool
 
             selected_tool = matches[0]
@@ -315,11 +311,11 @@ class InfoFlowPlanner(SimpleConcretePlanner):
 
         total_combinations = 1
         for match_list in matches:
-            total_combinations *= len(match_list) if match_list else 1
+            total_combinations *= len(match_list)
         logger.info(f"Evaluating {total_combinations} possible tool combinations")
 
         if total_combinations == 0:
-            logger.error("No possible combinations - at least one abstract tool has no matches")
+            logger.info("No possible combinations - at least one abstract tool has no matches")
             return None
 
         # Try each combination until we find one that satisfies information flow constraints
@@ -327,36 +323,30 @@ class InfoFlowPlanner(SimpleConcretePlanner):
             logger.debug(f"Evaluating combination {i + 1}/{total_combinations}")
             logger.debug(f"Proposal: {[tool.name for tool in proposal]}")
 
-            try:
-                memory = MemoryModel(
-                    lattice_type=SubsetLattice,
-                    dynamic_vars={},
-                    static_vars={
-                        abstract_tool.name: SubsetLattice(concrete_tool.clearances)
-                        for abstract_tool, concrete_tool in zip(plan.abs_tools, proposal)
-                    },
-                )
+            memory = MemoryModel(
+                lattice_type=SubsetLattice,
+                dynamic_vars={},
+                static_vars={
+                    abstract_tool.name: SubsetLattice(concrete_tool.clearances)
+                    for abstract_tool, concrete_tool in zip(plan.abs_tools, proposal)
+                },
+            )
 
-                code = plan.compile_for_analysis()
-                logger.debug("Running information flow analysis on proposal")
+            code = plan.compile_for_analysis()
+            logger.debug("Running information flow analysis on proposal")
 
-                # Run information flow analysis
-                analyzer = FlowAnalyzer(memory)
-                analyzer.analyze_ast(code)
+            # Run information flow analysis
+            analyzer = FlowAnalyzer(memory)
+            analyzer.analyze_ast(code)
 
-                if analyzer.valid:
-                    logger.info(f"Found valid combination after {i + 1} attempts")
-                    logger.debug(f"Valid tools: {[tool.name for tool in proposal]}")
-                    return {
-                        abstract_tool.name: concrete_tool
-                        for abstract_tool, concrete_tool in zip(plan.abs_tools, proposal)
-                    }
-                else:
-                    logger.debug(f"Combination {i + 1} failed information flow analysis")
-
-            except Exception as e:
-                logger.warning(f"Error analyzing combination {i + 1}: {e}")
-                continue
+            if analyzer.valid:
+                logger.info(f"Found valid combination after {i + 1} attempts")
+                logger.debug(f"Valid tools: {[tool.name for tool in proposal]}")
+                return {
+                    abstract_tool.name: concrete_tool for abstract_tool, concrete_tool in zip(plan.abs_tools, proposal)
+                }
+            else:
+                logger.debug(f"Combination {i + 1} failed information flow analysis")
 
         # If no valid proposal found, return None
         logger.error(f"No valid tool combination found after evaluating {total_combinations} possibilities")

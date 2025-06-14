@@ -1,3 +1,5 @@
+import traceback
+
 import click
 from dotenv import load_dotenv
 
@@ -92,8 +94,8 @@ def cli(llm_model, embedding_model, tool_manifest, temperature, verbose, very_ve
             if hasattr(agent, "output_log") and agent.output_log:
                 logger.debug(f"Most recent output: {agent.output_log[-1]}")
         except Exception as e:
-            error_msg = str(e)
+            error_msg = traceback.format_exc()
             logger.error(f"Query failed with internal error: {e}", exc_info=True)
             formatter.print_error(
-                f"Query failed with an internal runtime error: {error_msg}\nPlease check the logs for details."
+                f"Query failed with an internal runtime error:\n{error_msg}\n\nPlease check the logs for details."
             )

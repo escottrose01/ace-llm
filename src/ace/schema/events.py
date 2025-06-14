@@ -38,8 +38,8 @@ class ToolMappingGeneratedEvent:
 class ToolMappingFailedEvent:
     """Event emitted when tool mapping fails."""
 
-    error: Exception
-    attempted_mapping: dict[str, ConcreteToolBase]
+    message: str
+    details: dict[str, Any]
 
 
 @dataclass
