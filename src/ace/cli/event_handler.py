@@ -41,7 +41,7 @@ class CLIEventHandler:
     def on_tool_mapping_failed(self, event: ToolMappingFailedEvent) -> None:
         """Display tool mapping failure in CLI."""
         self.formatter.print_section_header("TOOL MAPPING", "bright_yellow")
-        self.formatter.print_tool_mapping(event.attempted_mapping)
+        self.formatter.print_warning(f"Tool mapping failed: {event.message}")
 
     def on_execution_started(self, event: ExecutionStartedEvent) -> None:
         """Display execution start in CLI."""

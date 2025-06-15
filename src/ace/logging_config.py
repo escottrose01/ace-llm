@@ -49,12 +49,45 @@ class ACEFormatter(logging.Formatter):
         return formatted
 
 
+def configure_external_loggers(external_log_level: str = "WARNING") -> None:
+    """
+    Configure external libraries' loggers to reduce noise.
+
+    Args:
+        external_log_level: Log level for external libraries (ERROR, WARNING, etc.)
+    """
+    numeric_level = getattr(logging, external_log_level.upper(), logging.WARNING)
+
+    # Dictionary of noisy external libraries and their specific log levels
+    external_loggers: dict[str, int] = {
+        # HTTP and networking libraries
+        "httpcore": numeric_level,
+        "httpx": numeric_level,
+        "urllib3": numeric_level,
+        "requests": numeric_level,
+        # API client libraries
+        "openai": numeric_level,
+        # Embedding and vector search libraries
+        "faiss": numeric_level,
+        # Other potential noisy libraries
+        "numexpr": logging.ERROR,
+        "asyncio": numeric_level,
+        "charset_normalizer": logging.ERROR,
+    }
+
+    # Apply the configured log levels
+    for logger_name, level in external_loggers.items():
+        logging.getLogger(logger_name).setLevel(level)
+
+
 def setup_logging(
     log_level: str = "WARNING",
     log_file: Optional[str] = None,
     console_output: bool = True,
     max_file_size: int = 10 * 1024 * 1024,  # 10MB
     backup_count: int = 5,
+    filter_external: bool = True,
+    external_log_level: str = "WARNING",
 ) -> None:
     """
     Set up comprehensive logging for ACE-LLM.
@@ -65,6 +98,8 @@ def setup_logging(
         console_output: Whether to output logs to console
         max_file_size: Maximum size of log file before rotation
         backup_count: Number of backup files to keep
+        filter_external: Whether to filter external library logs
+        external_log_level: Log level for external libraries if filter_external is True
     """
 
     # Convert string log level to logging constant
@@ -102,6 +137,10 @@ def setup_logging(
         console_handler.setFormatter(ACEFormatter(use_colors=use_colors, detailed=False))
         root_logger.addHandler(console_handler)
 
+    # Filter external library logs if requested
+    if filter_external:
+        configure_external_loggers(external_log_level)
+
     # Log startup message
     logger = logging.getLogger("ace.logging_config")
     logger.info("=" * 60)
@@ -109,6 +148,7 @@ def setup_logging(
     logger.info(f"Log Level: {log_level}")
     logger.info(f"Log File: {os.path.abspath(log_file)}")
     logger.info(f"Console Output: {console_output}")
+    logger.info(f"External Library Filtering: {filter_external} (level: {external_log_level})")
     logger.info("=" * 60)
 
 

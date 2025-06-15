@@ -189,7 +189,7 @@ class LoggingEventHandler:
         self.logger.info(f"Tool mapping successful: {mappings}")
 
     def on_tool_mapping_failed(self, event: ToolMappingFailedEvent) -> None:
-        self.logger.error(f"Tool mapping failed: {event.error}")
+        self.logger.info(f"Tool mapping failed: {event.message}")
 
     def on_execution_started(self, event: ExecutionStartedEvent) -> None:
         self.logger.info(f"Execution started for plan with {len(event.tools)} tools")
@@ -283,9 +283,8 @@ class DebugEventHandler:
 
     def on_tool_mapping_failed(self, event: ToolMappingFailedEvent) -> None:
         self.event_count += 1
-        self.logger.debug(f"[{self.event_count}] ToolMappingFailed: {type(event.error).__name__}")
-        self.logger.debug(f"  Error: {event.error}")
-        self.logger.debug(f"  Attempted mapping: {event.attempted_mapping}")
+        self.logger.debug(f"[{self.event_count}] ToolMappingFailed: {event.message}")
+        self.logger.debug(f"  Details: {event.details}")
 
     def on_execution_started(self, event: ExecutionStartedEvent) -> None:
         self.event_count += 1

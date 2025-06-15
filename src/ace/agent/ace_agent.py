@@ -60,14 +60,11 @@ class AceAgent:
 
         # Phase 1: Generate abstract plan
         logger.info("Phase 1: Generating abstract plan")
-        try:
-            abstract_plan = self.abstract_planner.generate_abstract_plan(query)
-            logger.info(f"Abstract plan generated with {len(abstract_plan.abs_tools)} tools")
-            logger.debug(f"Abstract tools: {[tool.name for tool in abstract_plan.abs_tools]}")
-            logger.debug(f"Abstract script length: {len(abstract_plan.script)} characters")
-        except Exception as e:
-            logger.error(f"Failed to generate abstract plan: {e}", exc_info=True)
-            raise
+
+        abstract_plan = self.abstract_planner.generate_abstract_plan(query)
+        logger.info(f"Abstract plan generated with {len(abstract_plan.abs_tools)} tools")
+        logger.debug(f"Abstract tools: {[tool.name for tool in abstract_plan.abs_tools]}")
+        logger.debug(f"Abstract script length: {len(abstract_plan.script)} characters")
 
         # Always emit events for the generated abstract tools and plan
         self.event_registry.on_abstract_tools_generated(AbstractToolsGeneratedEvent(abstract_plan.abs_tools))
@@ -79,18 +76,21 @@ class AceAgent:
         try:
             tool_mapping = self.concrete_planner.implement_plan(abstract_plan)
             if tool_mapping is None:
-                logger.error("No valid tool mapping found for the given plan")
-                # Emit tool mapping failed event
-                error = RuntimeError("No valid tool mapping found for the given plan")
-                self.event_registry.on_tool_mapping_failed(ToolMappingFailedEvent(error, {}))
-                raise error
+                # TODO: refactor this. Should not be an error object. Not needed.
+                logger.info("No valid tool mapping found for the given plan")
+                self.event_registry.on_tool_mapping_failed(
+                    ToolMappingFailedEvent("No valid tool mapping found for the given plan", {})
+                )
+
+                # TODO: what is the best way to handle this?
+                #       in the case that this happens, shouldn't just return with "success" result . . .
+                # TODO: create a custom return type to handle run output.
+                #       has .result, .status, .tool_use_history, .output_log, etc.
+                return None
 
             logger.info(f"Tool mapping generated with {len(tool_mapping)} concrete tools")
             logger.debug(f"Concrete tools: {list(tool_mapping.keys())}")
         except Exception as e:
-            if "No valid tool mapping found" not in str(e):
-                # Emit tool mapping failed event for other errors too
-                self.event_registry.on_tool_mapping_failed(ToolMappingFailedEvent(e, {}))
             logger.error(f"Failed to generate tool mapping: {e}", exc_info=True)
             raise
 
