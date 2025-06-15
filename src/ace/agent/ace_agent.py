@@ -74,19 +74,25 @@ class AceAgent:
         # Phase 2: Generate concrete plan (tool mapping)
         logger.info("Phase 2: Generating concrete plan")
         try:
-            tool_mapping = self.concrete_planner.implement_plan(abstract_plan)
-            if tool_mapping is None:
-                # TODO: refactor this. Should not be an error object. Not needed.
-                logger.info("No valid tool mapping found for the given plan")
-                self.event_registry.on_tool_mapping_failed(
-                    ToolMappingFailedEvent("No valid tool mapping found for the given plan", {})
-                )
+            # Check if there are any abstract tools that need mapping
+            if not abstract_plan.abs_tools:
+                # No abstract tools in plan, skip mapping phase
+                tool_mapping = {}
+                logger.info("No abstract tools in plan, no mapping needed")
+            else:
+                tool_mapping = self.concrete_planner.implement_plan(abstract_plan)
+                if tool_mapping is None:
+                    # Failed to map the abstract tools
+                    logger.info("No valid tool mapping found for the given plan")
+                    self.event_registry.on_tool_mapping_failed(
+                        ToolMappingFailedEvent("No valid tool mapping found for the given plan", {})
+                    )
 
-                # TODO: what is the best way to handle this?
-                #       in the case that this happens, shouldn't just return with "success" result . . .
-                # TODO: create a custom return type to handle run output.
-                #       has .result, .status, .tool_use_history, .output_log, etc.
-                return None
+                    # TODO: what is the best way to handle this?
+                    #       in the case that this happens, shouldn't just return with "success" result . . .
+                    # TODO: create a custom return type to handle run output.
+                    #       has .result, .status, .tool_use_history, .output_log, etc.
+                    return None
 
             logger.info(f"Tool mapping generated with {len(tool_mapping)} concrete tools")
             logger.debug(f"Concrete tools: {list(tool_mapping.keys())}")
