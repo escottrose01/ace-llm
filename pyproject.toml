@@ -45,6 +45,7 @@ managed = true
 
 [tool.ruff]
 line-length = 120
+exclude = ["tools", "injec_eval"]
 
 [tool.ruff.lint]
 ignore = [
@@ -69,6 +70,9 @@ docstring-code-format = true
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
+
+[tool.pyright]
+include = ["src"]
 
 [build-system]
 requires = ["setuptools>=61.0"]
