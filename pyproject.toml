@@ -23,6 +23,9 @@ dependencies = [
 ace = "ace.main:cli"
 
 [dependency-groups]
+bench-langchain = [
+    "langchain-benchmarks>=0.0.10",
+]
 dev = [
     "ruff>=0.4.4",
     "pyright>=1.1.365",
