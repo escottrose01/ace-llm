@@ -4,10 +4,10 @@ from enum import StrEnum
 class ModelsEnum(StrEnum):
     """Currently supported models."""
 
-    GPT_4_1_2025_04_14 = "gpt-4-1-2025-04-14"
-    GPT_4_1_MINI_2025_04_14 = "gpt-4-1-mini-2025-04-14"
-    GPT_4_1_NANO_2025_04_14 = "gpt-4-1-nano-2025-04-14"
-    GPT_4_5_PREVIEW_2025_02_27 = "gpt-4-5-preview-2025-02-27"
+    GPT_4_1_2025_04_14 = "gpt-4.1-2025-04-14"
+    GPT_4_1_MINI_2025_04_14 = "gpt-4.1-mini-2025-04-14"
+    GPT_4_1_NANO_2025_04_14 = "gpt-4.1-nano-2025-04-14"
+    GPT_4_5_PREVIEW_2025_02_27 = "gpt-4.5-preview-2025-02-27"
     GPT_4O_2024_11_20 = "gpt-4o-2024-11-20"
     GPT_4O_2024_08_06 = "gpt-4o-2024-08-06"
     GPT_4O_2024_05_13 = "gpt-4o-2024-05-13"
