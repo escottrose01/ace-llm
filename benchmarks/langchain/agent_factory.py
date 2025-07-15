@@ -1,3 +1,6 @@
+import time
+from enum import Enum
+
 import requests
 from ace.agent import AceAgent
 from ace.execute import PlanOrchestrator
@@ -5,12 +8,22 @@ from langchain_core.agents import AgentAction
 from langchain_core.runnables import RunnableLambda
 
 
+class Status(Enum):
+    OK = "Success"
+    ABSTRACT_PLANNING_FAILURE = "Abstract planning failed"
+    ABSTRACT_PLANNING_ERROR = "Abstract planning failed"
+    CONCRETE_PLANNING_FAILURE = "No feasible concrete plan"
+    CONCRETE_PLANNING_ERROR = "Concrete planning error"
+    EXECUTION_ERROR = "Execution error"
+
+
 class ACEAgentLangChain:
-    def __init__(self, agent: AceAgent, task, service_url):
+    def __init__(self, agent: AceAgent, task, service_url, extra_context=None):
         print("Initializing ACEAgentLangChain...")
         self.agent = agent
         self.task = task
         self.service_url = service_url
+        self.extra_context = extra_context or ""
 
     def invoke(self, inputs):
         # Reset environment before each run
@@ -25,54 +38,148 @@ class ACEAgentLangChain:
 
         # Compose query
         q = inputs["question"]
-        query = self.task.instructions + f" The given string is: '{q}'."
-        query = (
-            "You are a typewriter tool that can type letters one at a time. You have a single effectual tool that can type a letter. It takes the character to type as an argument and returns status code.\n\n"
-            + query
-        )
+        extra_context = f"{self.extra_context}\n\n" or ""
+        instructions = f"{self.task.instructions}\n\n" if self.task.instructions else ""
+        query = extra_context + instructions + f"The given string is: '{q}'."
 
         # ACE pipeline
-        abstract_plan = self.agent.abstract_planner.generate_abstract_plan(query)
-        concrete_plan = self.agent.concrete_planner.implement_plan(plan=abstract_plan)
+        trace = dict()
+
+        # Abstract planning
+        abstract_plan = None
+        try:
+            start_time = time.perf_counter()
+            abstract_plan = self.agent.abstract_planner.generate_abstract_plan(query)
+            end_time = time.perf_counter()
+            trace["Abstract Plan"] = abstract_plan.script
+            trace["Abstract Tools"] = [t.as_dict() for t in abstract_plan.abs_tools]
+            trace["Plan Time"] = end_time - start_time
+        except Exception:
+            # TODO: implement more nuanced custom error types
+            trace["Status"] = Status.ABSTRACT_PLANNING_ERROR.name
+            return {
+                "question": q,
+                "output": "",
+                "intermediate_steps": self.get_steps(),
+                "state": self.get_state(),
+                "trace": trace,
+            }
+        finally:
+            if not abstract_plan:
+                trace["Status"] = Status.ABSTRACT_PLANNING_FAILURE.name
+                return {
+                    "question": q,
+                    "output": "",
+                    "intermediate_steps": self.get_steps(),
+                    "state": self.get_state(),
+                    "trace": trace,
+                }
+
+        # Concrete planning
+        try:
+            start_time = time.perf_counter()
+            concrete_plan = self.agent.concrete_planner.implement_plan(plan=abstract_plan)
+            end_time = time.perf_counter()
+            trace["Match Time"] = end_time - start_time
+
+            if not concrete_plan:
+                trace["Status"] = Status.CONCRETE_PLANNING_FAILURE.name
+
+                return {
+                    "question": q,
+                    "output": "",
+                    "intermediate_steps": self.get_steps(),
+                    "state": self.get_state(),
+                    "trace": trace,
+                }
+
+            tool_mapping = concrete_plan  # Will become attribute of concrete_plan in future versions
+            trace["Raw Feasible Matches"] = None  # TODO: Better concrete planner return type
+            trace["Tool Mapping"] = {tool_name: tool_call.name for tool_name, tool_call in tool_mapping.items()}
+
+        except Exception:
+            # TODO: implement more nuanced custom error types
+            trace["Status"] = Status.CONCRETE_PLANNING_ERROR.name
+            return {
+                "question": q,
+                "output": "",
+                "intermediate_steps": self.get_steps(),
+                "state": self.get_state(),
+                "trace": trace,
+            }
+
+        # Execution
         with PlanOrchestrator(abstract_plan, concrete_plan) as orchestrator:
-            orchestrator.launch()
-            orchestrator.join()
-            result = orchestrator.result
-
-            # Try to get intermediate_steps and state if available
-            intermediate_steps = None
             try:
-                intermediate_steps = requests.get(f"{self.service_url}/history")
-                if intermediate_steps.status_code == 200:
-                    intermediate_steps = intermediate_steps.json().get("history", [])
-                    intermediate_steps = [(AgentAction(**action), output) for action, output in intermediate_steps]
-                else:
-                    intermediate_steps = []
-            except Exception as e:
-                print(f"Error fetching intermediate steps: {e}")
+                start_time = time.perf_counter()
+                orchestrator.launch()
+                orchestrator.join()
+                end_time = time.perf_counter()
 
-            state = None
-            try:
-                env = requests.get(f"{self.service_url}/state")
-                if env.status_code == 200:
-                    state = env.json().get("state")
+                output = orchestrator.result
+                trace["Execution Time"] = end_time - start_time
             except Exception as e:
-                print(f"Error fetching state: {e}")
+                trace["Status"] = Status.EXECUTION_ERROR.name
+                trace["Execution Error"] = str(e)
+                return {
+                    "question": q,
+                    "output": "",
+                    "intermediate_steps": self.get_steps(),
+                    "state": self.get_state(),
+                    "trace": trace,
+                }
+
+            if not orchestrator.exception_queue.empty():
+                trace["Status"] = Status.EXECUTION_ERROR.name
+                trace["Execution Error"] = orchestrator.exception_queue.get()
+                return {
+                    "question": q,
+                    "output": "",
+                    "intermediate_steps": self.get_steps(),
+                    "state": self.get_state(),
+                    "trace": trace,
+                }
 
         return {
             "question": q,
-            "output": result,
-            "intermediate_steps": intermediate_steps,
-            "state": state,
+            "output": output,
+            "intermediate_steps": self.get_steps(),
+            "state": self.get_state(),
+            "trace": trace,
         }
+
+    def get_steps(self):
+        try:
+            response = requests.get(f"{self.service_url}/history")
+            if response.status_code == 200:
+                steps = response.json().get("steps", [])
+                steps = [(AgentAction(**action), output) for action, output in steps]
+                return steps
+            else:
+                return []
+        except Exception as e:
+            print(f"Error fetching steps: {e}")
+            return []
+
+    def get_state(self):
+        try:
+            response = requests.get(f"{self.service_url}/state")
+            if response.status_code == 200:
+                return response.json().get("state")
+            else:
+                return None
+        except Exception as e:
+            print(f"Error fetching state: {e}")
+            return None
 
 
 class AgentFactory:
-    def __init__(self, agent, task, service_url):
+    def __init__(self, agent, task, service_url, extra_context=None):
         self.agent = agent
         self.task = task
         self.service_url = service_url
+        self.extra_context = extra_context
 
     def __call__(self, *args):
-        agent = ACEAgentLangChain(self.agent, self.task, self.service_url)
+        agent = ACEAgentLangChain(self.agent, self.task, self.service_url, self.extra_context)
         return RunnableLambda(agent.invoke)

@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import uuid
 from enum import Enum
 from pathlib import Path
@@ -36,17 +37,9 @@ BENCHMARK_LONG_NAMES = {
     Benchmark.RELATIONAL_DATA: "Relational Data",
 }
 
-ROOT_DIR = Path("benchmarks") / "langchain" / "data"
-BENCHMARK_DATA_PATHS = {
-    Benchmark.TYPEWRITER_1: ROOT_DIR / "single_tools_cases.json",
-    Benchmark.TYPEWRITER_26: ROOT_DIR / "multi_tools_cases.json",
-    Benchmark.MULTIVERSE_MATH: ROOT_DIR / "multiverse_math.json",
-    Benchmark.RELATIONAL_DATA: ROOT_DIR / "relational_data_cases.json",
-}
-
 EXTRA_CONTEXT = {
-    Benchmark.TYPEWRITER_1: "You are a typewriter tool that can type letters one at a time. You have a single tool that can type a letter.",
-    Benchmark.TYPEWRITER_26: "You are a typewriter tool that can type letters one at a time. You have 26 tools, each capable of typing a single letter from the standard alphabet.",
+    Benchmark.TYPEWRITER_1: "You are a typewriter tool that can type letters one at a time. You have a single tool that types a letter and returns string status.",
+    Benchmark.TYPEWRITER_26: "You are a typewriter tool that can type letters one at a time. You have 26 tools, each for a letter of the alphabet, and they return string status when a letter is typed.",
 }
 
 
@@ -69,9 +62,9 @@ def main(args: argparse.Namespace):
     clone_public_dataset(task.dataset_id, dataset_name=dataset_name)
 
     # ACE System setup
-    abs_model = ModelsEnum("gpt-4o-2024-05-13")
-    conc_model = ModelsEnum("gpt-4o-2024-05-13")
-    embedding_model = EmbeddingsEnum("text-embedding-3-small")
+    abs_model = ModelsEnum.GPT_4_1_NANO_2025_04_14
+    conc_model = ModelsEnum.GPT_4_1_NANO_2025_04_14
+    embedding_model = EmbeddingsEnum.OPENAI_3_SMALL
 
     abs_llm = ChatOpenAI(model=abs_model.value, temperature=0.8)
     conc_llm = ChatOpenAI(model=conc_model.value, temperature=0.8)
@@ -97,10 +90,11 @@ def main(args: argparse.Namespace):
         concrete_planner=concrete_planner,
     )
 
-    agent_factory = AgentFactory(agent, task, service_url)
+    extra_context = EXTRA_CONTEXT.get(benchmark, "") if args.extra_context else ""
+    agent_factory = AgentFactory(agent, task, service_url, extra_context)
     eval_config = task.get_eval_config()
 
-    client.run_on_dataset(
+    results = client.run_on_dataset(
         dataset_name=dataset_name,
         llm_or_chain_factory=agent_factory,
         evaluation=eval_config,
@@ -118,6 +112,17 @@ def main(args: argparse.Namespace):
         },
     )
 
+    print("Benchmark completed")
+
+    # Save results to a file if specified
+    # TODO: currently this will fail because of several nonserializable values
+    if args.output_dir:
+        output_dir = args.output_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
+        with open(output_dir / "results.json", "w") as f:
+            json.dump(results, f, indent=2)
+        print(f"Trace logs saved to {output_dir / 'results.json'}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run LangChain benchmarks.")
@@ -126,10 +131,11 @@ if __name__ == "__main__":
         "--benchmark_name",
         type=str,
         default="typewriter1",
-        choices=Benchmark.__members__.keys(),
+        choices=Benchmark._value2member_map_.keys(),
         help="Name of the benchmark to run.",
     )
-    parser.add_argument("--output_path", type=str, default=None, help="Path to save the benchmark results.")
+    parser.add_argument("--extra_context", action="store_true", help="Give extra task context to the agent.")
+    parser.add_argument("--output_dir", type=Path, default=None, help="Directory to save the benchmark results.")
 
     args = parser.parse_args()
 
