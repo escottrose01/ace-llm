@@ -15,6 +15,7 @@ class LangChainAceAdapter:
         self.env = task.create_environment()
         self.tools = self.env.tools
         self.tool_lookup = {tool.name: tool for tool in self.tools}
+        self.history: list[tuple] = []
 
         # Ensure all tool names are unique
         tool_names = [tool.name for tool in self.tools]
@@ -29,7 +30,7 @@ class LangChainAceAdapter:
     def _setup_routes(self):
         @self.app.route("/health", methods=["GET"])
         def health():
-            return jsonify({"status": "ok"})
+            return jsonify({"status": "ok"}), 200
 
         @self.app.route("/tools", methods=["GET"])
         def tools():
@@ -45,7 +46,11 @@ class LangChainAceAdapter:
                         for tool in self.tools
                     ]
                 }
-            )
+            ), 200
+
+        @self.app.route("/history", methods=["GET"])
+        def history():
+            return jsonify({"history": self.history}), 200
 
         @self.app.route("/invoke", methods=["POST"])
         def invoke():
@@ -72,6 +77,17 @@ class LangChainAceAdapter:
             except Exception as e:
                 return jsonify({"success": False, "error": f"Error executing tool code: {e!s}"})
 
+            self.history.append(
+                (
+                    {
+                        "tool": tool_name,
+                        "tool_input": args,
+                        "log": "",
+                    },
+                    result,
+                )
+            )
+
             return jsonify({"success": True, "result": result}), 200
 
         @self.app.route("/state", methods=["GET"])
@@ -84,7 +100,9 @@ class LangChainAceAdapter:
             self.env = self.task.create_environment()
             self.tools = self.env.tools
             self.tool_lookup = {tool.name: tool for tool in self.tools}
-            return jsonify({"status": "reset"})
+            self.history = []
+
+            return jsonify({"status": "reset"}), 200
 
     def start(self, host: str = "0.0.0.0", port: Optional[int] = None) -> int:
         """

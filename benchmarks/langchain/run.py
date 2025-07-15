@@ -1,22 +1,24 @@
 import argparse
-import json
+import datetime
+import uuid
 from enum import Enum
 from pathlib import Path
 
-import requests
 from ace.agent.ace_agent import AceAgent
-from ace.execute import PlanOrchestrator
 from ace.llm.embeddings import EmbeddingsEnum
 from ace.llm.models import ModelsEnum
 from ace.plan.abstract import AbstractPlanner
 from ace.plan.concrete import SimpleConcretePlanner
 from ace.tools.manager import ToolManager
 from dotenv import load_dotenv
-from langchain_benchmarks import registry
+from langchain_benchmarks import __version__ as langchain_version
+from langchain_benchmarks import clone_public_dataset, registry
 from langchain_benchmarks.schema import ToolUsageTask
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langsmith.client import Client
 
 from .ace_adapter import LangChainAceAdapter
+from .agent_factory import AgentFactory
 
 
 class Benchmark(Enum):
@@ -48,65 +50,13 @@ EXTRA_CONTEXT = {
 }
 
 
-def run_case(agent: AceAgent, task: ToolUsageTask, case: dict):
-    # Extract query and answer
-    q = case["inputs"]["question"]
-    case["outputs"]["reference"]
-    query = (
-        (
-            "Repeat the given string using the provided tools. "
-            "Do not write anything else or provide any explanations. "
-            "For example, if the string is 'abc', you must print the letters "
-            "'a', 'b', and 'c' one at a time and in that order. "
-            "Please invoke the functions without any arguments."
-            "The given string is: '"
-        )
-        + q
-        + "'."
-    )
-
-    query = (
-        "You are a typewriter tool that can type letters one at a time. You have a single tool that can type a letter. It takes the character to type as an argument.\n\n"
-        + query
-    )
-    query += "BTW when you match tools please be lenient about the return type."
-
-    # Phase 1: Abstract Planning
-    abstract_plan = agent.abstract_planner.generate_abstract_plan(query)
-    print(f"Abstract tools: {[f'{tool.name} - {tool.description}' for tool in abstract_plan.abs_tools]}")
-    print(f"Abstract plan: {abstract_plan.script}")
-
-    # Phase 2: Concrete Planning
-    concrete_plan = agent.concrete_planner.implement_plan(plan=abstract_plan)
-    print("Concrete plan:", concrete_plan)
-
-    # Phase 3: Execution
-    with PlanOrchestrator(abstract_plan, concrete_plan) as orchestrator:
-        orchestrator.launch()
-        orchestrator.join()
-
-        result = orchestrator.result
-        print(f"Result: {result}")
-
-    # Evaluation
-    eval_config = task.get_eval_config()
-    print(task.eval_params)
-    print(eval_config)
-    for eval in eval_config:
-        print(eval)
-
-
 def main(args: argparse.Namespace):
     load_dotenv()
 
-    # System setup
-    abs_model = ModelsEnum("gpt-4o-2024-05-13")
-    conc_model = ModelsEnum("gpt-4o-2024-05-13")
-    embedding_model = EmbeddingsEnum("text-embedding-3-small")
-
-    abs_llm = ChatOpenAI(model=abs_model.value, temperature=0.8)
-    conc_llm = ChatOpenAI(model=conc_model.value, temperature=0.8)
-    embedding = OpenAIEmbeddings(model=embedding_model.value)
+    # LangSmith client and experiment setup
+    client = Client()
+    today = datetime.date.today().isoformat()
+    experiment_id = uuid.uuid4().hex[:]
 
     benchmark = Benchmark(args.benchmark_name)
 
@@ -114,6 +64,18 @@ def main(args: argparse.Namespace):
 
     task: ToolUsageTask = registry[BENCHMARK_LONG_NAMES[benchmark]]  # type: ignore
     assert isinstance(task, ToolUsageTask), "Expected a ToolUsageTask instance"
+
+    dataset_name = task.name + f" ({today})"
+    clone_public_dataset(task.dataset_id, dataset_name=dataset_name)
+
+    # ACE System setup
+    abs_model = ModelsEnum("gpt-4o-2024-05-13")
+    conc_model = ModelsEnum("gpt-4o-2024-05-13")
+    embedding_model = EmbeddingsEnum("text-embedding-3-small")
+
+    abs_llm = ChatOpenAI(model=abs_model.value, temperature=0.8)
+    conc_llm = ChatOpenAI(model=conc_model.value, temperature=0.8)
+    embedding = OpenAIEmbeddings(model=embedding_model.value)
 
     # Bridge between LangChain and ACE
     adapter = LangChainAceAdapter(task=task)
@@ -135,26 +97,26 @@ def main(args: argparse.Namespace):
         concrete_planner=concrete_planner,
     )
 
-    with open(BENCHMARK_DATA_PATHS[benchmark]) as f:
-        cases = json.load(f)
+    agent_factory = AgentFactory(agent, task, service_url)
+    eval_config = task.get_eval_config()
 
-    results = []
-    for case in cases:
-        # Reset environment
-        requests.post(f"{service_url}/reset")
-
-        # Verify the health of the service
-        health_response = requests.get(f"{service_url}/health")
-        if health_response.status_code != 200:
-            raise RuntimeError(f"Service health check failed: {health_response.text}")
-
-        # Run case
-        result = run_case(agent, task, case)
-        results.append(result)
-
-        # Collect results and check correctness
-        env = requests.get(f"{service_url}/state")
-        print(f"Environment state: {env.json()}")
+    client.run_on_dataset(
+        dataset_name=dataset_name,
+        llm_or_chain_factory=agent_factory,
+        evaluation=eval_config,
+        verbose=False,
+        project_name=f"{abs_model.value}-{conc_model.value}-{embedding_model.value}-{today}-{experiment_id}",
+        concurrency_level=0,  # ACE binds a specific port, so cannot run concurrently
+        project_metadata={
+            "abs_model": abs_model.value,
+            "conc_model": conc_model.value,
+            "embedding_model": embedding_model.value,
+            "id": experiment_id,
+            "task": task.name,
+            "date": today,
+            "langchain_benchmarks_version": langchain_version,
+        },
+    )
 
 
 if __name__ == "__main__":
