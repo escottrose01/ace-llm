@@ -63,110 +63,116 @@ EMAIL_SUMMARIZER = AbstractTool(
 
 
 def generate_abstract_plan_template() -> ChatPromptTemplate:
-    shot_1: str = f"""
-        # This is an example of a user query that requires using a single abstract app.
+    shot_1: str = f"""\
+# Example: User query using a single abstract app with structured output.
 
-        User: Generate a poem and count the number of r's
-        Auto-Generated Abstract apps:
-        [{POEM_GENERATOR.as_json()}]
-        
-        Generated Output:
-            def main():
-                poem: str = PoemGenerator("nature")
-                result: int = poem.count('r')
-                result_str: str = str(result)
-                s = "Number of r's in the poem: " + result_str
-                display(s)
-                return result 
-            final_output = main()
-                   
+User: Generate a poem and count the number of r's
+Auto-Generated Abstract apps:
+[{POEM_GENERATOR.as_json()}]
+
+Generated Output:
+    def main():
+        poem_result: PoemGenerator = PoemGenerator(theme="nature")
+        poem: str = poem_result.poem
+        r_count: int = poem.count('r')
+        r_count_str: str = str(r_count)
+        s: str = "Number of r's in the poem: " + r_count_str
+        display(s)
+        return r_count
+    final_output = main()
     """
 
-    shot_2: str = f"""
-        # This is an example of a user query that requires using two abstract apps and a user input (builtin).
+    shot_2: str = f"""\
+# Example: User query using two abstract apps and a user input, with structured outputs.
 
-        User input: Please summarize the latest news articles on the topic of AI and send the result in an email 
-                   
-        Auto-Generated Abstract apps:
-        [{NEWS_SUMMARIZER.as_json()}, {EMAIL_SENDER.as_json()}]
-                   
-        Generated Output:
-            def main():
-                news: str = NewsSummarizer("AI")
-                email_addr: str = UserInput()
-                conf: str = EmailSender(email_addr, news)
-                display(conf)
-                return conf
-            final_output = main()
+User input: Please summarize the latest news articles on the topic of AI and send the result in an email
+
+Auto-Generated Abstract apps:
+[{NEWS_SUMMARIZER.as_json()}, {EMAIL_SENDER.as_json()}]
+
+Generated Output:
+    def main():
+        news_result: NewsSummarizer = NewsSummarizer(topic="AI")
+        news_summary: str = news_result.summary
+        email_addr: str = UserInput()
+        email_result: EmailSender = EmailSender(email_address=email_addr, content=news_summary)
+        confirmation: str = email_result.confirmation
+        display(confirmation)
+        return confirmation
+    final_output = main()
     """
 
-    shot_3: str = f"""
-        # This is an example of a user query that requires using multiple implementations of a single abstract app.
+    shot_3: str = f"""\
+# Example: User query using multiple implementations of a single abstract app, with structured outputs.
 
-        User: Check all my email apps and summarize all unread emails
-        
-        Auto-Generated Abstract apps:
-        [{EMAIL_RETRIEVER.as_json()}, {EMAIL_SUMMARIZER.as_json()}]
+User: Check all my email apps and summarize all unread emails
 
-        Generated Output:
-            def main():
-                emails: tuple[str] = ()
-                for app in GetAllImplementations(EmailRetriever):
-                    v = app()
-                    emails += tuple(v)
-                summary: str = EmailSummarizer(emails)
-                display(summary)
-                return summary
-            final_output = main()
+Auto-Generated Abstract apps:
+[{EMAIL_RETRIEVER.as_json()}, {EMAIL_SUMMARIZER.as_json()}]
+
+Generated Output:
+    def main():
+        all_emails: list = []
+        for app in GetAllImplementations(EmailRetriever):
+            retrieve_result: EmailRetriever = app()
+            emails: list = retrieve_result.emails
+            all_emails += emails
+        summary_result: EmailSummarizer = EmailSummarizer(emails=all_emails)
+        summary: str = summary_result.summary
+        display(summary)
+        return summary
+    final_output = main()
     """
 
-    template_str = """
-        # Prompt
+    template_str = """\
+# Prompt
 
-        Objective:
-        Your task is to generate a plan that outlines the steps required to complete a user query.
-        The plan should include the abstract apps that need to be used to complete the task.
-        Each abstract app has a name, description, inputs, and output.
-        The plan should be implemented as a Python function that uses the abstract apps to achieve the desired result.
+Objective:
+Your task is to generate a plan that outlines the steps required to complete a user query.
+The plan should include the abstract apps that need to be used to complete the task.
+Each abstract app has a name, description, inputs, and output.
+The plan should be implemented as a Python function that uses the abstract apps to achieve the desired result.
 
-        Tools:
-        An abstract app is a tool that performs a specific task and has a well-defined interface.
-        The abstract app has a name, description, inputs, and output.
-        The inputs and output are described using data types and brief descriptions.
-        The abstract app is implemented as a Python function that takes the required inputs and returns the output.
+Tools:
+An abstract app is a tool that performs a specific task and has a well-defined interface.
+The abstract app has a name, description, inputs, and output.
+The inputs and output are described using data types and brief descriptions.
+The abstract app is implemented as a Python function that takes the required inputs and returns a structured output object.
 
-        In addition to abstract tools, you always have access to the following built-in functions:
-        - UserInput(): A function that prompts the user to provide an input.
-        - GetAllImplementations(app_name): A function that returns all implementations of a given abstract app.
-        - display(data : str): This replaces the print function and should be used to display the output.
+In addition to abstract tools, you always have access to the following built-in functions:
+- UserInput(): A function that prompts the user to provide an input.
+- GetAllImplementations(app_name): A function that returns all implementations of a given abstract app.
+- display(data : str): This replaces the print function and should be used to display the output.
 
-        Important language notes: the grammar is a restricted subset of the Python language. These additional rules apply:
-        - functions calls CANNOT be used as subexpressions; for example, `s: str = "The answer is:" + str(result)` is not allowed.
-        - instead, do `result_s: = str(result)` and then `s: str = "The answer is: " + result_s`. THIS RULE IS VERY IMPORTANT.
-        - all variables must be declared with types, and all assignments must agree with the declared type.
-        - the main function should be named main() and should return the final output.
-        - the plan should call the function main() and put the final output in the variable final_output.
-        - side effects are disallowed! All variable updates must be done via reconstruction. This means that you cannot modify a variable in place.
+Important language notes: the grammar is a restricted subset of the Python language. These additional rules apply:
+- Function calls CANNOT be used as subexpressions; for example, `s: str = "The answer is:" + str(result)` is not allowed.
+- Instead, do `result_s: str = str(result)` and then `s: str = "The answer is: " + result_s`. THIS RULE IS VERY IMPORTANT.
+- All variables must be declared with types, and all assignments must agree with the declared type.
+- Tool calls must assign the full output object to a variable with the correct type annotation (e.g., `result: ToolOutput = Tool(args)`).
+- To use a specific output field, assign it to a variable with the correct type annotation (e.g., `value: float = result.field`).
+- The main function should be named main() and should return the final output.
+- The plan should call the function main() and put the final output in the variable final_output.
+- Side effects are disallowed! All variable updates must be done via reconstruction. This means that you cannot modify a variable in place.
 
-        In general, if it seems like multiple implementations of an abstract app are needed, you should use the GetAllImplementations language feature.
-        
-        Here are some examples of user queries and the corresponding generated plans using the various planning language features:
+In general, if it seems like multiple implementations of an abstract app are needed, you should use the GetAllImplementations language feature.
 
-        Example 1:
-        {shot_1}
+Here are some examples of user queries and the corresponding generated plans using the various planning language features:
 
-        Example 2:
-        {shot_2}
+Example 1:
+{shot_1}
 
-        Example 3:
-        {shot_3}
+Example 2:
+{shot_2}
+
+Example 3:
+{shot_3}
 
 
-        Use the following tools to complete the user query:
-        {tools}
+Use the following tools to complete the user query:
+{tools}
 
-        
-        You MUST STRICTLY follow the format suggested by the above provided output examples. Only answer with the specified Python function.
+
+You MUST STRICTLY follow the format suggested by the above provided output examples. Only answer with the specified Python function.
     """
 
     template_planner_message = [
