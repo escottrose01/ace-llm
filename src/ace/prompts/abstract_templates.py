@@ -395,7 +395,7 @@ def generate_abstract_tool_template() -> ChatPromptTemplate:
         HumanMessagePromptTemplate(
             prompt=PromptTemplate(
                 input_variables=["input"],
-                template="User Query: {input} \n Ensure that a tool is always used if applicable.",
+                template="User Query: {input}",
             )
         ),
     ]

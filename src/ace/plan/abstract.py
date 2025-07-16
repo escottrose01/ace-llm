@@ -2,13 +2,12 @@ import re
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
-from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field, create_model
 
 from ..logging_config import get_logger
 from ..prompts.abstract_templates import generate_abstract_plan_template, generate_abstract_tool_template
-from ..schema import AbstractPlan, AbstractTool
+from ..schema import TOOL_GENERATION_SCHEMA, AbstractPlan, AbstractTool
 
 logger = get_logger(__name__)
 
@@ -42,13 +41,27 @@ def parse_text_to_python(text: str | AIMessage) -> str:
     return code
 
 
-def create_pydantic_schema(fields: dict[str, dict[str, str]]) -> type[BaseModel]:
+def create_pydantic_schema(fields: list[dict[str, str]]) -> type[BaseModel]:
     schema_fields = {}
-    for field_name, field_props in fields.items():
-        # Convert string type to actual Python type
-        field_type = eval(field_props["type"])
-        field_description = field_props.get("description", "")
-        schema_fields[field_name] = (field_type, Field(..., description=field_description))
+    for item in fields:
+        print(item)
+        name = item["name"]
+        type = item["type"]
+        desc = item["description"]
+
+        # Extract type
+        match type:
+            case "int":
+                field_type = int
+            case "float":
+                field_type = float
+            case "str":
+                field_type = str
+            case "bool":
+                field_type = bool
+            case _:
+                raise ValueError(f"Unsupported type: {type}")
+        schema_fields[name] = (field_type, Field(..., description=desc))
 
     return create_model("ArgsSchema", **schema_fields)
 
@@ -58,21 +71,17 @@ class AbstractPlanner:
     toolgen_chain: Runnable
     plangen_chain: Runnable
 
-    def __init__(self, base_llm):
+    def __init__(self, base_llm: BaseChatModel):
         logger.info("Initializing AbstractPlanner")
         self.base_llm = base_llm
 
+        # Create prompt templates
         toolgen_prompt = generate_abstract_tool_template()
         plangen_prompt = generate_abstract_plan_template()
-        json_parser = JsonOutputParser()
 
-        # These chains will need to be updated to use the new LLM interface if they use .invoke
-        self.toolgen_chain = toolgen_prompt | self.base_llm | json_parser
+        # Generation chains
+        self.toolgen_chain = toolgen_prompt | self.base_llm.with_structured_output(TOOL_GENERATION_SCHEMA)
         self.plangen_chain = plangen_prompt | self.base_llm
-
-        # Last generated tools. Used for test trials
-        self.tools = {}
-        logger.debug("AbstractPlanner initialization completed")
 
     def generate_abstract_tools(self, query) -> dict:
         logger.debug(f"Generating abstract tools for query: {query[:100]}...")
@@ -83,7 +92,7 @@ class AbstractPlanner:
             logger.info(f"Generated {len(output.get('apps', []))} abstract tools")
             logger.debug(f"Abstract tools: {[app.get('name', 'unnamed') for app in output.get('apps', [])]}")
 
-            # Log full tool definitions using structured logging
+            # Log full tool definitions
             for i, app in enumerate(output.get("apps", [])):
                 tool_name = app.get("name", "unnamed")
                 logger.log_structured("info", f"ABSTRACT_TOOL_{i + 1}", f"name={tool_name}")
@@ -99,7 +108,6 @@ class AbstractPlanner:
 
         # Generate abstract tools first
         abstract_tools = self.generate_abstract_tools(query)
-        self.tools = abstract_tools
 
         # Generate the plan using the tools
         logger.debug("Generating plan script using abstract tools")
@@ -121,10 +129,8 @@ class AbstractPlanner:
                 f"Processing abstract tool {i + 1}/{len(abstract_tools['apps'])}: {tool.get('name', 'unnamed')}"
             )
             try:
-                input_ = tool.get("input", tool.get("inputs"))
-                output_ = tool.get("output", tool.get("outputs"))
-                tool_input_schema = create_pydantic_schema(input_)
-                tool_output_schema = create_pydantic_schema({"output": output_})
+                tool_input_schema = create_pydantic_schema(tool["inputs"])
+                tool_output_schema = create_pydantic_schema(tool["outputs"])
 
                 abstract_tool = AbstractTool(
                     name=tool["name"],
