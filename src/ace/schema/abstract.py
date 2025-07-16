@@ -20,7 +20,7 @@ class AbstractTool(BaseModel):
         }
 
     def as_json(self) -> str:
-        return json.dumps(self.as_dict(), indent=4)
+        return json.dumps(self.as_dict(), indent=None)
 
 
 class ToolCallTransformer(ast.NodeTransformer):
