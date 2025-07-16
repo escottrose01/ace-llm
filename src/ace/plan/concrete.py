@@ -9,6 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
 from langchain_openai import OpenAIEmbeddings
+from pydantic import model_validator
 
 from ..logging_config import get_logger
 from ..prompts.concrete_templates import generate_tool_compatibility_json_template
@@ -26,6 +27,24 @@ class SchemaAdaptedTool(ConcreteToolBase):
     wrapped_tool: ConcreteToolBase
     input_mapping_source: str
     output_mapping_source: str
+
+    @model_validator(mode="after")
+    def validate_mappings(self) -> "SchemaAdaptedTool":
+        if not self.input_mapping_source:
+            raise ValueError("input_mapping_source must be defined")
+        if not self.output_mapping_source:
+            raise ValueError("output_mapping_source must be defined")
+
+        # Validate that the mappings are valid Python code
+        try:
+            ast.parse(self.input_mapping_source)
+            ast.parse(self.output_mapping_source)
+        except SyntaxError as e:
+            raise ValueError(f"Invalid mapping source code: {e}")
+
+        # TODO: should verify other things, like that annotations correspond to tool schemas
+
+        return self
 
     def generate_source(self) -> str:
         underlying_ast = self.wrapped_tool.compile()
@@ -215,20 +234,27 @@ class SimpleConcretePlanner(ConcretePlannerBase):
                     )
                     continue
 
-                # TODO: pydantic kind of requires constructor to use all fields
-                # but we should see if we can make this cleaner with validators
-                adapted_tool = SchemaAdaptedTool(
-                    name=concrete_tool.name,
-                    provider=concrete_tool.provider,
-                    description=concrete_tool.description,
-                    clearances=concrete_tool.clearances,
-                    permissions=concrete_tool.permissions,
-                    args_schema=abstract_tool.args_schema,
-                    output_schema=abstract_tool.output_schema,
-                    wrapped_tool=concrete_tool,
-                    input_mapping_source=input_mapping,
-                    output_mapping_source=output_mapping,
-                )
+                try:
+                    # TODO: pydantic kind of requires constructor to use all fields
+                    # but we should see if we can make this cleaner with validators
+                    # or computed fields. Or maybe shouldn't use pydantic?
+                    adapted_tool = SchemaAdaptedTool(
+                        name=concrete_tool.name,
+                        provider=concrete_tool.provider,
+                        description=concrete_tool.description,
+                        clearances=concrete_tool.clearances,
+                        permissions=concrete_tool.permissions,
+                        args_schema=abstract_tool.args_schema,
+                        output_schema=abstract_tool.output_schema,
+                        wrapped_tool=concrete_tool,
+                        input_mapping_source=input_mapping,
+                        output_mapping_source=output_mapping,
+                    )
+                except Exception as e:
+                    # TODO: should make this whole thing a chain and use a retry loop with feedback in case it fails
+                    logger.warning(f"SchemaAdaptedTool construction failed for {tool_name}: {e}")
+                    continue
+
                 tools.append(adapted_tool)
                 logger.debug(f"Successfully adapted tool: {tool_name}")
 
