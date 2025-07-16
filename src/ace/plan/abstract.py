@@ -2,7 +2,7 @@ import re
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
-from langchain_core.runnables import Runnable, RunnableLambda
+from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
 from pydantic import BaseModel, Field, create_model
 
 from ..logging_config import get_logger
@@ -94,7 +94,23 @@ class AbstractPlanner:
             self.base_llm.with_structured_output(TOOL_GENERATION_SCHEMA) | self.parse_tools_runnable
         ).with_retry(stop_after_attempt=self.max_retries)
 
-        self.plangen_chain = plangen_prompt | self.base_llm
+        # Parse plan and combine with original tools
+        def parse_plan_with_tools(inputs):
+            script_output = inputs["script"]
+            tools = inputs["tools"]
+            parsed_script = parse_text_to_python(script_output)
+            print(parsed_script)  # Debugging line to check parsed script
+            return AbstractPlan(script=parsed_script, abs_tools=tools)
+
+        format_tools_runnable = RunnableLambda(lambda inputs: "\n".join([tool.as_json() for tool in inputs["tools"]]))  # type: ignore
+        parse_plan_runnable = RunnableLambda(parse_plan_with_tools)
+
+        self.plangen_chain = (
+            RunnablePassthrough.assign(
+                script=(RunnablePassthrough.assign(tools=format_tools_runnable) | plangen_prompt | self.base_llm)
+            )
+            | parse_plan_runnable
+        ).with_retry(stop_after_attempt=self.max_retries)
 
     @staticmethod
     def parse_tools_fn(output: dict) -> list[AbstractTool]:
@@ -135,26 +151,25 @@ class AbstractPlanner:
 
         # Generate abstract tools first
         abs_tools = self.generate_abstract_tools(query)
-        tool_fmt = "\n".join([tool.as_json() for tool in abs_tools])
 
-        # Generate the plan using the tools
         logger.debug("Generating plan script using abstract tools")
         try:
-            abstract_plan = self.plangen_chain.invoke({"input": query, "tools": tool_fmt, "context": self.context})
+            plan_obj: AbstractPlan = self.plangen_chain.invoke(
+                {"input": query, "context": self.context, "tools": abs_tools}
+            )
             logger.debug("Plan script generation completed")
 
             # Log the raw plan output using structured logging
-            logger.log_raw_llm_output("abstract_plan", str(abstract_plan))
+            logger.log_raw_llm_output("abstract_plan", str(plan_obj.script))
 
         except Exception as e:
             logger.error(f"Failed to generate abstract plan script: {e}", exc_info=True)
             raise
 
-        parsed_script = parse_text_to_python(abstract_plan)
         logger.info(f"Abstract plan generation completed with {len(abs_tools)} tools")
-        logger.debug(f"Script length: {len(parsed_script)} characters")
+        logger.debug(f"Script length: {len(plan_obj.script)} characters")
 
         # Log the final abstract plan using enhanced logger
-        logger.log_plan(parsed_script, abs_tools)
+        logger.log_plan(plan_obj.script, abs_tools)
 
-        return AbstractPlan(script=parsed_script, abs_tools=abs_tools)
+        return plan_obj

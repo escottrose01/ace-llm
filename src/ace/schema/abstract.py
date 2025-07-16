@@ -283,9 +283,7 @@ class PlanGrammarValidator(ast.NodeVisitor):
         if isinstance(node.annotation, ast.Name):
             type_name = node.annotation.id
             if type_name not in self.allowed_types:
-                self.errors.append(
-                    f"Type '{type_name}' is not allowed. " f"Allowed types: {sorted(self.allowed_types)}"
-                )
+                self.errors.append(f"Type '{type_name}' is not allowed. Allowed types: {sorted(self.allowed_types)}")
                 return
 
             self.variables[var_name] = type_name
