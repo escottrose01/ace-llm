@@ -9,4 +9,4 @@ def main(start_point: str, end_point: str) -> float:
     base_fare = 15.0
     distance = len(start_point) + len(end_point)
     fare = base_fare + distance * 1.8
-    return fare
+    return {"result": fare}

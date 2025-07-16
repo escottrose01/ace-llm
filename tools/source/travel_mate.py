@@ -32,4 +32,4 @@ def main(
     # return booking_details
 
     # Deviating from SecGPT to force a return type of str
-    return json.dumps(booking_details, indent=4)
+    return {"result": json.dumps(booking_details, indent=4)}
