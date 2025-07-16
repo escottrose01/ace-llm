@@ -44,7 +44,6 @@ def parse_text_to_python(text: str | AIMessage) -> str:
 def create_pydantic_schema(fields: list[dict[str, str]]) -> type[BaseModel]:
     schema_fields = {}
     for item in fields:
-        print(item)
         name = item["name"]
         type = item["type"]
         desc = item["description"]
@@ -71,9 +70,14 @@ class AbstractPlanner:
     toolgen_chain: Runnable
     plangen_chain: Runnable
 
-    def __init__(self, base_llm: BaseChatModel):
+    def __init__(
+        self,
+        base_llm: BaseChatModel,
+        context: str = "",
+    ):
         logger.info("Initializing AbstractPlanner")
         self.base_llm = base_llm
+        self.context = context
 
         # Create prompt templates
         toolgen_prompt = generate_abstract_tool_template()
@@ -88,7 +92,7 @@ class AbstractPlanner:
         logger.log_query(query)
 
         try:
-            output = self.toolgen_chain.invoke({"input": query})
+            output = self.toolgen_chain.invoke({"query": query, "context": self.context})
             logger.info(f"Generated {len(output.get('apps', []))} abstract tools")
             logger.debug(f"Abstract tools: {[app.get('name', 'unnamed') for app in output.get('apps', [])]}")
 
@@ -138,6 +142,7 @@ class AbstractPlanner:
                     args_schema=tool_input_schema,
                     output_schema=tool_output_schema,
                 )
+                print(abstract_tool.as_dict())
 
                 abstract_tool_list.append(abstract_tool)
                 logger.debug(f"Successfully created AbstractTool: {tool['name']}")

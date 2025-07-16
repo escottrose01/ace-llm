@@ -185,232 +185,67 @@ def generate_abstract_plan_template() -> ChatPromptTemplate:
 
 
 def generate_abstract_tool_template() -> ChatPromptTemplate:
-    tools_output_format = """
-        {
-            "apps": 
-            [
-                {
-                    "name": "ToolNameA",
-                    "input": {
-                        "query": str
-                    },
-                    "output": "result_1"
-                },
-                {
-                    "name": "ToolNameB",
-                    "input": {
-                        "query": str
-                    },
-                    "output": "result_2"
-                }
-            ]
-        }
-        """
+    system_message = """\
+# Task
+Generate a list of external tool schemas relevant to a given user task. Only enumerate possible APIs, wrappers, or utilities that might help a downstream agent solve the task. For trivial requests solvable with basic code (e.g., arithmetic), output none.
 
-    tools_output_empty_format = """
-    {
-        "apps": []
-    }
-    """
+Each tool schema must be a JSON object and must include:
+- name (PascalCase, e.g., "WeatherLookup" or "StockPriceQuery")
+- description
+- inputs: (type and description for each parameter, only if required)
+- output: (type and description)
 
-    shot_1: str = """
-        # This is an example of a user query that requires a single tool
-        
-        User: I would like to know what the temperature it in Brooklyn at 6pm today.
-        
-        Generated output:
-        {
-            "apps": 
-            [
-                {
-                    "name": "TemperatureChecker",
-                    "description": "TemperatureChecker is a tool used to retrieve the temperature.",
-                    "inputs": {
-                        "time": {
-                            "type": "str",
-                            "description": "Standard time to check temperature at"
-                        }
-                        "location": {
-                            "type": "str",
-                            "description": "Location (as a name) to check temperature at"
-                        }
-                    },
-                    "output": {
-                        "type": "float",
-                        "description": "The temperature in farenheit of the specified time and location"
-                    }
-                },
-            ]
-        }
-    """
+Allowed types: int, float, str, bool
 
-    shot_2: str = """
-    # This is an example of a user query that requires a shopping tool.
+Do not solve, break down, or sequence the user's task. Output only the relevant tool schemas in the format:
+{{
+  "apps": [ ...tool schemas... ]
+}}
 
-    User: I would like to order a pizza online for delivery.
+If no tools are needed, output:
+{{
+  "apps": []
+}}
 
-    Generated output:
-    {
-        "apps": 
-        [
-            {
-                "name": "PizzaOrderingTool",
-                "description": "A tool that helps users place pizza orders online for delivery",
-                "inputs": {
-                    "pizza_item": {
-                        "type": "str",
-                        "description": "The name of the food item to order"
-                    },
-                    "Location": {
-                        "type": "str",
-                        "description": "Delivery location"
-                    }
-                },
-                "output": {
-                    "type": "str",
-                    "description": "A confirmation of the order being placed"
-                }
-            }
-        ]
-    }
-    """
+# Output Format
+Return valid JSON only:
+- Field: "apps"
+- Value: list of tool schemas as defined above (or empty list)
+- Ensure every tool "name" is written in PascalCase
 
-    shot_3 = """
-    User Query: Please post a message saying "Release is scheduled for tomorrow at 10 AM" to the #project-updates channel.
-    Generated Output:
-    {"apps":
-        [
-            {
-                "name": "SlackSendMessage",
-                "description": "Sends a message to a specified Slack channel.",
-                "inputs": {
-                    "channel_name": {
-                    "type": "str",
-                    "description": "The name of the Slack channel."
-                    },
-                    "message": {
-                    "type": "str",
-                    "description": "The content of the message to post."
-                    }
-                },
-                "output": {
-                    "type": "object",
-                    "description": "An object containing the posted message ID and timestamp."
-                }
-            }
-        ]
-    }
-    """
+# Example Inputs / Outputs
+User: What's the temperature in Brooklyn at 6pm today?
+Output: {{ "apps": [ {{ "name": "WeatherLookup", "description": "...", "inputs": {{...}}, "output": {{...}} }} ] }}
 
-    shot_4 = """
-    User Query: Can you please list my current subscriptions?
-    Abstract Tool:
-    {
-        "apps": [
-            {
-                "name": "SubscriptionLister",
-                "description": "Retrieves a list of existing subscriptions and their services.",
-                "inputs": {},
-                "output": {
-                    "type": "list",
-                    "description": "A list of subscriptions with their respective services and payment amounts"
-                }
-            },
-        ]
-    }
-    """
+User: What is 3 + 4?
+Output: {{ "apps": [] }}
 
-    template_str = """
-        '# Prompt
-        
-        Objective:
-        Your to act as a tool generator in charge of devising a strategy to help users complete a given task. 
-        These tasks may or may not involve the usage of external tools. Your specific role is to devise 
-        a number of tools (can be 0 or can be many) that are necessary to complete the user task.
-        Assume that each tool is designed for a particular task.
-        
-                
-        Tools:
-        A tool consists of an LLM wrapper and a function which may use an external utility (e.g., an API). 
-        The function's implementation is not relevant for your purposes. The tool has a name and a description 
-        which helps the LLM wrapper delegate responsibilities. Your responsibility is to create signatures 
-        for tools that are necessary for completing the user tasks according to the following formats. 
-        The created tool signatures should be brief yet informative.
-        
-        Tool format:
-        {{
-            "name": "ToolName",
-            "description": "A brief description of what the tool does",
-            "inputs": {{
-                "parameter_1_name": {{
-                    "type": "data type of the parameter,
-                    "description": "A brief description of the parameter"
-                }}
-            }},
-            "output": {{
-                "type": "data type of the output,
-                "description": "A brief description of the output"
-            }}
-        }}
-        
-        Data types that can be used are a primitive
-        Primitives can be an integer, float, or str.
-        
-        Once you have completed your thought process, generate the structured JSON output 
-        following this format:
-        
-        Plan format:
-        {output_format} 
-        
-        If no tools are needed to address the user query, do not create any tools, instead follow this JSON format. Note that if a prompt can be completed with a single Python script (e.g., an arithmetic request), no tools are needed.
-        
-        Empty plan format:
-        {output_format_empty}
-        
-        Here is an example for reference:
-        Example 1:
-        {shot_1}
-        
-        Example 2:
-        {shot_2}
-        
-        Example 3:
-        {shot_3}
-        
-        Example 4:
-        {shot_4}
-        
-        To remember:
-        - The parameters generated should be retrievable from the user query. Do not include inputs that are not mentioned in the input.
-        - Do NOT generate tools that can be covered using simple Python code, for example "NumberAdder", "StringConcatenator", "ResponseComparator" ARE NOT NEEDED.
-        """
+# Notes
+- Always use PascalCase for the "name" field of each tool schema.
+- Do not attempt to answer, solve, or decompose the user's task.
+- Only output tool schemas in the specified format.
+- Strongly prefer single return values for outputs
+"""
+
+    context_message = """\
+# Additional System Context
+The following context clarifies the operational environment of the agent. Use this context to shape the types of tools generated.
+{context}
+"""
+
+    human_message = """\
+{query}
+"""
 
     template_planner_message = [
-        SystemMessagePromptTemplate(
-            prompt=PromptTemplate(
-                input_variables=["output_format", "output_format_empty", "shot_1", "shot_2", "shot_3", "shot_4"],
-                template=template_str,
-            )
-        ),
-        HumanMessagePromptTemplate(
-            prompt=PromptTemplate(
-                input_variables=["input"],
-                template="User Query: {input}",
-            )
-        ),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=[], template=system_message)),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=["context"], template=context_message)),
+        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["query"], template=human_message)),
     ]
 
     template_planner = ChatPromptTemplate(
-        input_variables=["output_format", "output_format_empty", "shot_1", "shot_2", "shot_3", "shot_4", "input"],
+        input_variables=["context", "query"],
         messages=template_planner_message,
     )
 
-    template_planner = template_planner.partial(
-        output_format=tools_output_format,
-        output_format_empty=tools_output_empty_format,
-        shot_1=shot_1,
-        shot_2=shot_2,
-        shot_3=shot_3,
-        shot_4=shot_4,
-    )
     return template_planner
