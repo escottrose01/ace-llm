@@ -2,7 +2,7 @@ import re
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import Runnable, RunnableLambda
 from pydantic import BaseModel, Field, create_model
 
 from ..logging_config import get_logger
@@ -69,39 +69,62 @@ class AbstractPlanner:
     base_llm: BaseChatModel
     toolgen_chain: Runnable
     plangen_chain: Runnable
+    max_retries: int = 3
 
     def __init__(
         self,
         base_llm: BaseChatModel,
         context: str = "",
+        max_retries: int = 3,
     ):
         logger.info("Initializing AbstractPlanner")
         self.base_llm = base_llm
         self.context = context
+        self.max_retries = max_retries
 
         # Create prompt templates
         toolgen_prompt = generate_abstract_tool_template()
         plangen_prompt = generate_abstract_plan_template()
 
+        # Runnable for parsing and validating tools
+        self.parse_tools_runnable = RunnableLambda(self.parse_tools_fn)
+
         # Generation chains
-        self.toolgen_chain = toolgen_prompt | self.base_llm.with_structured_output(TOOL_GENERATION_SCHEMA)
+        self.toolgen_chain = toolgen_prompt | (
+            self.base_llm.with_structured_output(TOOL_GENERATION_SCHEMA) | self.parse_tools_runnable
+        ).with_retry(stop_after_attempt=self.max_retries)
+
         self.plangen_chain = plangen_prompt | self.base_llm
 
-    def generate_abstract_tools(self, query) -> dict:
+    @staticmethod
+    def parse_tools_fn(output: dict) -> list[AbstractTool]:
+        if not output or "apps" not in output:
+            raise ValueError("Malformed output; missing 'apps' key.")
+        abstract_tool_list = []
+        for i, tool in enumerate(output["apps"]):
+            try:
+                tool_input_schema = create_pydantic_schema(tool["inputs"])
+                tool_output_schema = create_pydantic_schema(tool["outputs"])
+                abstract_tool = AbstractTool(
+                    name=tool["name"],
+                    description=tool["description"],
+                    args_schema=tool_input_schema,
+                    output_schema=tool_output_schema,
+                )
+                abstract_tool_list.append(abstract_tool)
+                logger.log_structured("info", f"ABSTRACT_TOOL_{i + 1}", f"name={tool['name']}")
+                logger.log_structured("debug", f"ABSTRACT_TOOL_{i + 1}_FULL", str(tool))
+            except Exception as e:
+                raise ValueError(f"Failed to instantiate AbstractTool for {tool.get('name', 'unnamed')}: {e}")
+        return abstract_tool_list
+
+    def generate_abstract_tools(self, query) -> list[AbstractTool]:
         logger.debug(f"Generating abstract tools for query: {query[:100]}...")
         logger.log_query(query)
-
         try:
-            output = self.toolgen_chain.invoke({"query": query, "context": self.context})
-            logger.info(f"Generated {len(output.get('apps', []))} abstract tools")
-            logger.debug(f"Abstract tools: {[app.get('name', 'unnamed') for app in output.get('apps', [])]}")
-
-            # Log full tool definitions
-            for i, app in enumerate(output.get("apps", [])):
-                tool_name = app.get("name", "unnamed")
-                logger.log_structured("info", f"ABSTRACT_TOOL_{i + 1}", f"name={tool_name}")
-                logger.log_structured("debug", f"ABSTRACT_TOOL_{i + 1}_FULL", str(app))
-
+            output: list[AbstractTool] = self.toolgen_chain.invoke({"query": query, "context": self.context})
+            logger.info(f"Generated {len(output)} abstract tools")
+            logger.debug(f"Abstract tools: {[app.name for app in output]}")
             return output
         except Exception as e:
             logger.error(f"Failed to generate abstract tools: {e}", exc_info=True)
@@ -111,12 +134,13 @@ class AbstractPlanner:
         logger.info("Starting abstract plan generation")
 
         # Generate abstract tools first
-        abstract_tools = self.generate_abstract_tools(query)
+        abs_tools = self.generate_abstract_tools(query)
+        tool_fmt = "\n".join([tool.as_json() for tool in abs_tools])
 
         # Generate the plan using the tools
         logger.debug("Generating plan script using abstract tools")
         try:
-            abstract_plan = self.plangen_chain.invoke({"input": query, "tools": abstract_tools})
+            abstract_plan = self.plangen_chain.invoke({"input": query, "tools": tool_fmt, "context": self.context})
             logger.debug("Plan script generation completed")
 
             # Log the raw plan output using structured logging
@@ -126,34 +150,11 @@ class AbstractPlanner:
             logger.error(f"Failed to generate abstract plan script: {e}", exc_info=True)
             raise
 
-        # Convert tools to AbstractTool objects
-        abstract_tool_list = []
-        for i, tool in enumerate(abstract_tools["apps"]):
-            logger.debug(
-                f"Processing abstract tool {i + 1}/{len(abstract_tools['apps'])}: {tool.get('name', 'unnamed')}"
-            )
-            try:
-                tool_input_schema = create_pydantic_schema(tool["inputs"])
-                tool_output_schema = create_pydantic_schema(tool["outputs"])
-
-                abstract_tool = AbstractTool(
-                    name=tool["name"],
-                    description=tool["description"],
-                    args_schema=tool_input_schema,
-                    output_schema=tool_output_schema,
-                )
-
-                abstract_tool_list.append(abstract_tool)
-                logger.debug(f"Successfully created AbstractTool: {tool['name']}")
-            except Exception as e:
-                logger.error(f"Failed to create AbstractTool for {tool.get('name', 'unnamed')}: {e}")
-                raise
-
         parsed_script = parse_text_to_python(abstract_plan)
-        logger.info(f"Abstract plan generation completed with {len(abstract_tool_list)} tools")
+        logger.info(f"Abstract plan generation completed with {len(abs_tools)} tools")
         logger.debug(f"Script length: {len(parsed_script)} characters")
 
         # Log the final abstract plan using enhanced logger
-        logger.log_plan(parsed_script, abstract_tool_list)
+        logger.log_plan(parsed_script, abs_tools)
 
-        return AbstractPlan(script=parsed_script, abs_tools=abstract_tool_list)
+        return AbstractPlan(script=parsed_script, abs_tools=abs_tools)
