@@ -12,7 +12,7 @@ from langchain_openai import OpenAIEmbeddings
 
 from ..logging_config import get_logger
 from ..prompts.concrete_templates import generate_tool_compatibility_json_template
-from ..schema.abstract import AbstractPlan, AbstractTool
+from ..schema.abstract import AbstractPlan, AbstractTool, AnnotationTransformer
 from ..schema.concrete import ConcreteToolBase
 from ..schema.infoflow import MemoryModel
 from ..schema.lattice import SubsetLattice
@@ -44,8 +44,14 @@ class SchemaAdaptedTool(ConcreteToolBase):
 
         field_names = list(self.args_schema.model_fields.keys())
 
+        # Parse and transform the input and output mapping sources
         input_mapping = ast.parse(self.input_mapping_source).body[0]
+        input_mapping = AnnotationTransformer().visit(input_mapping)
+        input_mapping = ast.fix_missing_locations(input_mapping)
+
         output_mapping = ast.parse(self.output_mapping_source).body[0]
+        output_mapping = AnnotationTransformer().visit(output_mapping)
+        output_mapping = ast.fix_missing_locations(output_mapping)
 
         # Begin building the main function
         main_body = []
