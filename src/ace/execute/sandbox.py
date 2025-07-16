@@ -184,7 +184,6 @@ class ToolExecutionSandbox:
 
     @property
     def result(self) -> Any:
-        # TODO: conform output to tool output schema
         if not self.container:
             raise RuntimeError("Container not launched")
         logs = self.container.logs()

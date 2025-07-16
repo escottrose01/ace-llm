@@ -38,6 +38,18 @@ class ToolCallTransformer(ast.NodeTransformer):
         return node
 
 
+class AnnotationTransformer(ast.NodeTransformer):
+    """Converts attribute access (x.y) to string indexing (x["y"]) in the AST."""
+
+    def visit_Attribute(self, node):
+        self.generic_visit(node)
+        return ast.Subscript(
+            value=node.value,
+            slice=ast.Constant(value=node.attr),
+            ctx=node.ctx,
+        )
+
+
 class AbstractPlan(BaseModel):
     script: str
     abs_tools: list[AbstractTool]
@@ -162,6 +174,10 @@ class AbstractPlan(BaseModel):
         tool_functions = {tool.name for tool in self.abs_tools}
         transformer = ToolCallTransformer(tool_functions)
         prog = transformer.visit(prog)
+
+        # Convert attribute access to string indexing
+        annotation_transformer = AnnotationTransformer()
+        prog = annotation_transformer.visit(prog)
         ast.fix_missing_locations(prog)
 
         return astor.to_source(prog)
