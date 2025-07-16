@@ -142,7 +142,6 @@ class AbstractPlanner:
                     args_schema=tool_input_schema,
                     output_schema=tool_output_schema,
                 )
-                print(abstract_tool.as_dict())
 
                 abstract_tool_list.append(abstract_tool)
                 logger.debug(f"Successfully created AbstractTool: {tool['name']}")
