@@ -1,13 +1,12 @@
 import json
 
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from pydantic import Field, create_model
-
 from ace.execute import PlanOrchestrator
 from ace.plan.concrete import SimpleConcretePlanner
 from ace.schema import AbstractPlan, AbstractTool
 from ace.tools.manager import ToolManager
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from pydantic import Field, create_model
 
 
 def main():
@@ -29,10 +28,12 @@ def main():
     )
 
     plan_script = (
-        "src : str = 'Main Street'\n"
-        "dst : str = 'Cooper Street'\n"
-        "v1 = RideShare(src=src, dst=dst)\n"
-        "display(f'Fare: {v1}')\n"
+        "def main():\n"
+        "    src: str = 'Main Street'\n"
+        "    dst: str = 'Cooper Street'\n"
+        "    v1: float = RideShare(src=src, dst=dst).fare\n"
+        "    display(f'Fare: {v1}')\n"
+        "final_output = main()\n"
     )
 
     plan = AbstractPlan(script=plan_script, abs_tools=[abstract_tool])
