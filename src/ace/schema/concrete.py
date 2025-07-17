@@ -35,7 +35,7 @@ class ConcreteToolBase(BaseModel, ABC):
         }
 
     def as_json(self) -> str:
-        return json.dumps(self.as_dict(), indent=0)
+        return json.dumps(self.as_dict(), indent=None)
 
 
 class CustomTool(ConcreteToolBase):
