@@ -64,126 +64,162 @@ EMAIL_SUMMARIZER = AbstractTool(
 
 def generate_abstract_plan_template() -> ChatPromptTemplate:
     shot_1: str = f"""\
-# Example: User query using a single abstract app with structured output.
-
-User: Generate a poem and count the number of r's
-Auto-Generated Abstract apps:
-[{POEM_GENERATOR.as_json()}]
+## Example: User query using a single abstract app with structured output.
+Query: Generate a poem and count the number of r's
+<Available Tools>
+{POEM_GENERATOR.as_json()}
+</Available Tools>
 
 Generated Output:
-    def main():
-        poem_result: PoemGenerator = PoemGenerator(theme="nature")
-        poem: str = poem_result.poem
-        r_count: int = poem.count('r')
-        r_count_str: str = str(r_count)
-        s: str = "Number of r's in the poem: " + r_count_str
-        display(s)
-        return r_count
-    final_output = main()
-    """
+```python
+def main():
+    poem_result: PoemGenerator = PoemGenerator(theme="nature")
+    poem: str = poem_result.poem
+    r_count: int = 0
+    poem_length: int = len(poem)
+
+    for i in range(poem_length):
+        eq: bool = poem[i] == 'r'
+        if eq:
+            r_count += 1
+
+    r_count_str: str = str(r_count)
+    s: str = "Number of r's in the poem: " + r_count_str
+    display(s)
+    return r_count
+final_output = main()
+```
+"""
 
     shot_2: str = f"""\
-# Example: User query using two abstract apps and a user input, with structured outputs.
-
-User input: Please summarize the latest news articles on the topic of AI and send the result in an email
-
-Auto-Generated Abstract apps:
-[{NEWS_SUMMARIZER.as_json()}, {EMAIL_SENDER.as_json()}]
-
-Generated Output:
-    def main():
-        news_result: NewsSummarizer = NewsSummarizer(topic="AI")
-        news_summary: str = news_result.summary
-        email_addr: str = UserInput()
-        email_result: EmailSender = EmailSender(email_address=email_addr, content=news_summary)
-        confirmation: str = email_result.confirmation
-        display(confirmation)
-        return confirmation
-    final_output = main()
-    """
-
-    shot_3: str = f"""\
-# Example: User query using multiple implementations of a single abstract app, with structured outputs.
-
-User: Check all my email apps and summarize all unread emails
-
-Auto-Generated Abstract apps:
-[{EMAIL_RETRIEVER.as_json()}, {EMAIL_SUMMARIZER.as_json()}]
+## Example: User query using two abstract apps, with structured outputs.
+Query: Please summarize the latest news articles on the topic of AI and send the result in an email to john@gmail.com
+<Available Tools>
+{NEWS_SUMMARIZER.as_json()}
+{EMAIL_SENDER.as_json()}
+</Available Tools>
 
 Generated Output:
-    def main():
-        all_emails: list = []
-        for app in GetAllImplementations(EmailRetriever):
-            retrieve_result: EmailRetriever = app()
-            emails: list = retrieve_result.emails
-            all_emails += emails
-        summary_result: EmailSummarizer = EmailSummarizer(emails=all_emails)
-        summary: str = summary_result.summary
-        display(summary)
-        return summary
-    final_output = main()
-    """
+```python
+def main():
+    news_result: NewsSummarizer = NewsSummarizer(topic="AI")
+    news_summary: str = news_result.summary
+    email_addr: str = "john@gmail.com"
+    email_result: EmailSender = EmailSender(email_address=email_addr, content=news_summary)
+    confirmation: str = email_result.confirmation
+    display(confirmation)
+    return confirmation
+final_output = main()
+```
+"""
 
-    template_str = """\
-# Prompt
+    shot_3: str = """\
+## Example: User query using control flow.
+User: Pick a string, and count the number of 'r's in it. if the number is odd, display "Hello".
+Auto-Generated Abstract apps:
+<Available Tools>
+</Available Tools>
 
-Objective:
-Your task is to generate a plan that outlines the steps required to complete a user query.
-The plan should include the abstract apps that need to be used to complete the task.
-Each abstract app has a name, description, inputs, and output.
-The plan should be implemented as a Python function that uses the abstract apps to achieve the desired result.
+Generated Output:
+```python
+def main():
+    magic_string: str = "abracadabra"
+    r_count: int = 0
+    length: int = len(magic_string)
+    for i in range(length):
+        eq: bool = magic_string[i] == 'r'
+        if eq:
+            r_count += 1
+    is_odd: bool = r_count % 2 == 1
+    if is_odd:
+        display("Hello")
+    return r_count
+final_output = main()
+```
+"""
 
-Tools:
-An abstract app is a tool that performs a specific task and has a well-defined interface.
-The abstract app has a name, description, inputs, and output.
-The inputs and output are described using data types and brief descriptions.
-The abstract app is implemented as a Python function that takes the required inputs and returns a structured output object.
+    system_message = """\
+# Task
+Generate a Python function plan to solve the user query using only the provided abstract apps and permitted built-in functionality.
 
-In addition to abstract tools, you always have access to the following built-in functions:
-- UserInput(): A function that prompts the user to provide an input.
-- GetAllImplementations(app_name): A function that returns all implementations of a given abstract app.
-- display(data : str): This replaces the print function and should be used to display the output.
+Key Requirements:
+- Each plan should be a Python function that combines the necessary abstract apps, returning the final result.
+- Use the provided abstract apps, each with a name, description, and defined inputs and outputs.
+- Follow all programming constraints and output format examples given below.
 
-Important language notes: the grammar is a restricted subset of the Python language. These additional rules apply:
-- Function calls CANNOT be used as subexpressions; for example, `s: str = "The answer is:" + str(result)` is not allowed.
-- Instead, do `result_s: str = str(result)` and then `s: str = "The answer is: " + result_s`. THIS RULE IS VERY IMPORTANT.
-- All variables must be declared with types, and all assignments must agree with the declared type.
-- Tool calls must assign the full output object to a variable with the correct type annotation (e.g., `result: ToolOutput = Tool(args)`).
-- To use a specific output field, assign it to a variable with the correct type annotation (e.g., `value: float = result.field`).
-- The main function should be named main() and should return the final output.
-- The plan should call the function main() and put the final output in the variable final_output.
-- Side effects are disallowed! All variable updates must be done via reconstruction. This means that you cannot modify a variable in place.
+Allowed Built-ins:
+- abs, bool, float, int, str, frozenset, all, any, len, pow, round, sum
 
-In general, if it seems like multiple implementations of an abstract app are needed, you should use the GetAllImplementations language feature.
+Blacklisted Built-ins (not allowed):
+- open, exec, eval, compile, __import__, input, globals, locals, vars, dir, help, exit, quit, getattr, setattr, delattr, super, memoryview
 
-Here are some examples of user queries and the corresponding generated plans using the various planning language features:
+Import Restrictions:
+- Only the "math" module may be imported. Do not use any other imports.
 
-Example 1:
+Special Tool Provided:
+- display(data: str): use this function to display output (do not use print).
+
+Programming Language and Style Rules:
+- Do not use function calls as subexpressions; assign results before continuing.
+- Do not use functions that are not built-in or provided abstract apps.
+- Declare all variables with types, and ensure assignments match these types.
+- Assign outputs of tools to a variable that has the correct type annotation.
+- Extract fields from tool outputs into variables with accurate types before using them.
+- The main function must be named main(), and it should return the computed output.
+- Assign the return value of main() to final_output.
+- Avoid side effects or in-place updates to variables; instead, recompute values when necessary.
+
+Instructions:
+- Follow the syntactic and semantic rules above.
+- Output only the required code without additional commentary, markdown code blocks, explanations, or text.
+- Use only the tools, built-ins, and modules specified above.
+
+# Output Format
+
+Directly output the Python function plan as specified, without markdown code blocks or explanatory text. The output must match the structure shown in the examples.
+
+# Notes
+- When displaying data, use only the display function provided.
+- Any use of blacklisted functionality or deviations from the specified style will result in invalid output.
+
+# Examples
+<WARNING> Do not use the tools used in the below examples. </WARNING>
+<Examples>
 {shot_1}
-
-Example 2:
 {shot_2}
-
-Example 3:
 {shot_3}
+</Examples>
+"""
 
-
-Use the following tools to complete the user query:
+    tools_message = """\
+# Tools
+You may use the following *below* abstract apps. Any apps listed prior to this message are not available to you, and you *should not* use them.
+<Available Tools>
 {tools}
+</Available Tools>
+"""
 
+    context_message = """\
+# Additional System Context
+The following context clarifies the operational environment of the agent. Use this context to shape the types of tools generated.
+{context}
+"""
 
-You MUST STRICTLY follow the format suggested by the above provided output examples. Only answer with the specified Python function.
-    """
+    human_message = """\
+{query}
+"""
 
     template_planner_message = [
         SystemMessagePromptTemplate(
-            prompt=PromptTemplate(input_variables=["shot_1", "shot_2", "shot_3", "tools"], template=template_str)
+            prompt=PromptTemplate(input_variables=["shot_1", "shot_2", "shot_3"], template=system_message)
         ),
-        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["input"], template="User Query: {input}")),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=["tools"], template=tools_message)),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=["context"], template=context_message)),
+        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["query"], template=human_message)),
     ]
 
     template_planner = ChatPromptTemplate(
-        input_variables=["shot_1", "shot_2", "shot_3", "tools", "input"], messages=template_planner_message
+        input_variables=["shot_1", "shot_2", "shot_3", "tools", "context", "query"], messages=template_planner_message
     )
 
     template_planner = template_planner.partial(shot_1=shot_1, shot_2=shot_2, shot_3=shot_3)

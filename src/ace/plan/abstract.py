@@ -99,7 +99,6 @@ class AbstractPlanner:
             script_output = inputs["script"]
             tools = inputs["tools"]
             parsed_script = parse_text_to_python(script_output)
-            print(parsed_script)  # Debugging line to check parsed script
             return AbstractPlan(script=parsed_script, abs_tools=tools)
 
         format_tools_runnable = RunnableLambda(lambda inputs: "\n".join([tool.as_json() for tool in inputs["tools"]]))  # type: ignore
@@ -155,7 +154,7 @@ class AbstractPlanner:
         logger.debug("Generating plan script using abstract tools")
         try:
             plan_obj: AbstractPlan = self.plangen_chain.invoke(
-                {"input": query, "context": self.context, "tools": abs_tools}
+                {"query": query, "context": self.context, "tools": abs_tools}
             )
             logger.debug("Plan script generation completed")
 
