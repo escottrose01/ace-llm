@@ -182,7 +182,7 @@ Expected JSON output:
     """
 
     # Shot 3: Invalid Compatibility Mapping for a Flight Tracker vs Flight Booker
-    shot_3 = """\
+    shot_3 = f"""\
 # Example 3: Invalid Compatibility Mapping for a Flight Tracker vs Flight Booker
 
 abstract_tool:
