@@ -145,11 +145,6 @@ class ConcretePlannerBase(ABC):
     def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         pass
 
-    @property
-    @abstractmethod
-    def results(self) -> list[dict]:
-        pass
-
 
 class SimpleConcretePlanner(ConcretePlannerBase):
     tool_manager: ToolManager
@@ -158,7 +153,6 @@ class SimpleConcretePlanner(ConcretePlannerBase):
     faiss_store: FAISS
     filter_threshold: float
     compat_chain: Runnable
-    _results: list[dict]
 
     def __init__(
         self,
@@ -172,7 +166,6 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         self.base_llm = base_llm
         self.embeddings = embedding_model
         self.filter_threshold = filter_threshold
-        self._results = []
 
         logger.debug(f"Filter threshold: {filter_threshold}")
         logger.debug(f"Available tools: {len(tool_manager.tools)}")
@@ -208,7 +201,6 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         # Conform concrete tools to abstract tool schema
         abs_tool_json = abstract_tool.as_json()
         tools = []
-        self._results = []
 
         for i, tool_name in enumerate(hit_names):
             logger.debug(f"Evaluating compatibility {i + 1}/{len(hit_names)}: {tool_name}")
@@ -221,7 +213,6 @@ class SimpleConcretePlanner(ConcretePlannerBase):
             concrete_tool_json = concrete_tool.as_json()
             result = self.compat_chain.invoke({"abstract_tool": abs_tool_json, "concrete_tool": concrete_tool_json})
 
-            self._results.append(result)
             logger.debug(f"Compatibility result for {tool_name}: {result.get('status', 'unknown')}")
 
             if result["status"] == "success":
@@ -288,10 +279,6 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         )
 
         return tools
-
-    @property
-    def results(self) -> list[dict]:
-        return self._results
 
     def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         logger.info(f"Implementing plan with {len(plan.abs_tools)} abstract tools")
