@@ -87,11 +87,11 @@ class AbstractPlanner:
         plangen_prompt = generate_abstract_plan_template()
 
         # Runnable for parsing and validating tools
-        self.parse_tools_runnable = RunnableLambda(self.parse_tools_fn)
+        parse_tools_runnable = RunnableLambda(self.parse_tools_fn)
 
         # Generation chains
         self.toolgen_chain = toolgen_prompt | (
-            self.base_llm.with_structured_output(TOOL_GENERATION_SCHEMA) | self.parse_tools_runnable
+            self.base_llm.with_structured_output(TOOL_GENERATION_SCHEMA) | parse_tools_runnable
         ).with_retry(stop_after_attempt=self.max_retries)
 
         # Parse plan and combine with original tools
