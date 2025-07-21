@@ -232,6 +232,8 @@ class SimpleConcretePlanner(ConcretePlannerBase):
                 input_mapping_source=input_mapping,
                 output_mapping_source=output_mapping,
             )
+
+            self.analyzer.analyze_post_tool_mapping(abstract_tool, result)
         else:
             raise ValueError(f"Invalid mapping status: {mapping_result['status']}")
 
