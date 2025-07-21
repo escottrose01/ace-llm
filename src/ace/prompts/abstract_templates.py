@@ -183,7 +183,7 @@ Directly output the Python function plan as specified, without markdown code blo
 - Any use of blacklisted functionality or deviations from the specified style will result in invalid output.
 
 # Examples
-<WARNING> Do not use the tools used in the below examples. </WARNING>
+<WARNING>Do not use the tools used in the below examples.</WARNING>
 <Examples>
 {shot_1}
 {shot_2}
@@ -201,8 +201,10 @@ You may use the following *below* abstract apps. Any apps listed prior to this m
 
     context_message = """\
 # Additional System Context
-The following context clarifies the operational environment of the agent. Use this context to shape the types of tools generated.
+The following context clarifies the operational environment of the agent. Use it to understand how tools will interact with the environment and what constraints apply.
+<Context>
 {context}
+</Context>
 """
 
     human_message = """\
@@ -271,8 +273,10 @@ Output: {{ "apps": [] }}
 
     context_message = """\
 # Additional System Context
-The following context clarifies the operational environment of the agent. Use this context to shape the types of tools generated.
+The following context clarifies the operational environment of the agent. Use this context to shape the types of tools generated. If the context mentions specific tools, you might want to generate them.
+<Context>
 {context}
+</Context>
 """
 
     human_message = """\
