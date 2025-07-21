@@ -44,6 +44,7 @@ class SchemaAdaptedTool(ConcreteToolBase):
             raise ValueError(f"Invalid mapping source code: {e}")
 
         # TODO: should verify other things, like that annotations correspond to tool schemas
+        print(self.generate_source())
 
         return self
 
@@ -161,6 +162,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         tool_manager: ToolManager,
         base_llm: BaseChatModel,
         embedding_model: OpenAIEmbeddings,
+        context: str = "",
         filter_threshold: float = 0.8,
         max_retries: int = 3,
     ):
@@ -169,6 +171,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         self.base_llm = base_llm
         self.embeddings = embedding_model
         self.filter_threshold = filter_threshold
+        self.context = context
 
         logger.debug(f"Filter threshold: {filter_threshold}")
         logger.debug(f"Available tools: {len(tool_manager.tools)}")
@@ -262,6 +265,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
 
                 batch.append(
                     {
+                        "context": self.context,
                         "abstract_tool": abstract_tool,
                         "concrete_tool": concrete_tool,
                     }
@@ -313,6 +317,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
 
             batch.append(
                 {
+                    "context": self.context,
                     "abstract_tool": abstract_tool,
                     "concrete_tool": concrete_tool,
                 }

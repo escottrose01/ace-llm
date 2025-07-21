@@ -147,13 +147,13 @@ MESSAGE_OUTPUT_MAPPING = "def output_mapping(result): return {'result': result.r
 def generate_tool_compatibility_json_template() -> ChatPromptTemplate:
     # Shot 1: Valid Compatibility Mapping for a Weather Checking Tool
     shot_1 = f"""\
-# Example 1: Valid Compatibility Mapping for a Weather Checking Tool
-
-abstract_tool:
+## Example: Valid Compatibility Mapping for a Weather Checking Tool
+<Abstract Tool>
 {WEATHER_ABS_TOOL}
-
-concrete_tool:
+</Abstract Tool>
+<Concrete Tool>
 {WEATHER_CONCRETE_TOOL}
+</Concrete Tool>
 
 Expected JSON output:
 {{
@@ -161,17 +161,17 @@ Expected JSON output:
 "input_mapping": "{WEATHER_INPUT_MAPPING}",
 "output_mapping": "{WEATHER_OUTPUT_MAPPING}"
 }}
-    """
+"""
 
     # Shot 2: Valid Compatibility Mapping for Currency Conversion
     shot_2 = f"""\
-# Example 2: Mapping for Currency Conversion
-
-abstract_tool:
+## Example: Mapping for Currency Conversion
+<Abstract Tool>
 {CURRENCY_ABS_TOOL}
-
-concrete_tool:
+</Abstract Tool>
+<Concrete Tool>
 {CURRENCY_CONCRETE_TOOL}
+</Concrete Tool>
 
 Expected JSON output:
 {{
@@ -183,30 +183,30 @@ Expected JSON output:
 
     # Shot 3: Invalid Compatibility Mapping for a Flight Tracker vs Flight Booker
     shot_3 = f"""\
-# Example 3: Invalid Compatibility Mapping for a Flight Tracker vs Flight Booker
-
-abstract_tool:
+## Example: Invalid Compatibility Mapping for a Flight Tracker vs Flight Booker
+<Abstract Tool>
 {FLIGHT_TRACKER_ABS_TOOL}
-
-concrete_tool:
+</Abstract Tool>
+<Concrete Tool>
 {FLIGHT_BOOKER_CONCRETE_TOOL}
+</Concrete Tool>
 
 Expected JSON output:
 {{
 "status": "failure",
 "error": "Concrete tool description does not match abstract tool description"
 }}
-    """
+"""
 
     # Shot 4: Invalid Compatibility Mapping for a Poem Writer
     shot_4 = f"""\
-# Example 4: Invalid Compatibility Mapping for a Poem Writer
-
-abstract_tool:
+# Example: Invalid Compatibility Mapping for a Poem Writer
+<Abstract Tool>
 {POEM_ABS_TOOL}
-
-concrete_tool:
+</Abstract Tool>
+<Concrete Tool>
 {POEM_CONCRETE_TOOL}
+</Concrete Tool>
 
 Expected JSON output:
 {{
@@ -216,84 +216,90 @@ Expected JSON output:
     """
 
     shot_5 = f"""\
-# Example 5: Valid Compatibility Mapping for a Message Sender
-
-abstract_tool:
+## Example: Valid Compatibility Mapping for a Message Sender
+<Abstract Tool>
 {MESSAGE_ABSTRACT_TOOL}
-
-concrete_tool:
+</Abstract Tool>
+<Concrete Tool>
 {MESSAGE_CONCRETE_TOOL}
+</Concrete Tool>
 
 Expected JSON output:
 {{
-    "status": "success",
-        "input_mapping": "{MESSAGE_INPUT_MAPPING}",
-    "output_mapping": "{MESSAGE_OUTPUT_MAPPING}"
+"status": "success",
+"input_mapping": "{MESSAGE_INPUT_MAPPING}",
+"output_mapping": "{MESSAGE_OUTPUT_MAPPING}"
 }}
-    """
+"""
 
-    template_str = """\
-### Prompt
-
-Objective:
+    system_message = """\
+# Task
 You are given two JSON objects:
 - "abstract_tool": a JSON object describing the abstract tool, including its name, description, inputs, and output.
 - "concrete_tool": a JSON object describing the concrete tool, including its name, description, inputs, and output.
 
 
-Your job:
-- Compare these two tools to determine compatibility.
-
-Instructions:
+Your job is to compare these two tools to determine compatibility based on the following criteria:
 - If the concrete tool is compatible with the abstract tool, output "status": "success", and include two additional fields:
     - "input_mapping": a string containing the Python code for a function named 'input_mapping'
     - "output_mapping": a string containing the Python code for a function named 'output_mapping'
 - The mapping functions should convert the concrete tool's input parameters to match those expected by the abstract tool.
-
 - If the concrete tool is incompatible (e.g., if its input parameter names do not correspond appropriately to the abstract tool's inputs), output "status": "failure" and an "error" field with an appropriate message.
 - In addition to checking input and output schemas, you should verify that the tool descriptions appropriately match each other. If the concrete tool's description does not "implement" the abstract tool's description, the mapping is considered invalid, and you should output a failure condition.
 - Assume the tool has exactly one output. When you write the output mapping function, return a single value of the type indicated in the abstract tool's output schema.
-- In general, please try to match the tools if at all possible. It is acceptable to "massage" the inputs and outputs so they conform with the schemas.
-- Tools should only be considered incompatable if their descriptions describe completely different purposes. If the descriptions are different yet describe the same overall purpose/funcitonality, then those tools should be considered compatable.
-- Do not expect/enforce percision in the names of parameters. If two parameters refer to the same general idea, then they are compatible. For example, if one abstract tool has the parameter 'name', and the concrete tool has a paramter 'id', then they can be considered compatible
+- In general, please try to match the tools if at all possible. It is acceptable to "massage" the inputs and outputs so they conform with the schemas. This includes type casting, renaming parameters, or changing the order of parameters.
+- Tools should only be considered incompatible if their descriptions describe completely different purposes. If the descriptions are different yet describe the same overall purpose/functionality, then those tools should be considered compatible.
+- Do not expect/enforce precision in the names of parameters. If two parameters refer to the same general idea, then they are compatible. For example, if one abstract tool has the parameter 'name', and the concrete tool has a parameter 'id', then they can be considered compatible
 - output_mapping should only take one argument, do not expand the arguments if multiple are available.
-- ***Do not use f-strings, instead use concatonation***
+- **No** code or text outside a single JSON object.
+- If there is a mismatch in descriptions or fields that cannot be reconciled, output failure.
+- Ensure that all items being returned in "input_mapping" are valid parameters in the concrete tool
+- Vague terms such as "keyword", "term" or "id" are very flexible and should be treated as umbrella terms, where they can be compatible with other terms such as "name", "user", "email", etc.
 
-Examples:
-
+# Examples
+<Examples>
 {shot_1}
-
 {shot_2}
-
 {shot_3}
-
 {shot_4}
-
 {shot_5}
+</Examples>
+"""
 
-Remember:
-    - **No** code or text outside a single JSON object.
-    - If there is a mismatch in descriptions or fields that cannot be reconciled, output failure.
-    - Ensure that all items being returned in "input_mapping" are valid parameters in the concrete tool
-    - Vague terms such as "keyword", "term" or "id" are very flexible and should be treated as umbrella terms, where they can be compatible with other terms such as "name", "user", "email", etc
+    context_message = """\
+# Additional System Context
+The following context clarifies the operational environment of the agent using these tools. Use this context to informat your decisions about compatibility and mappings.
+<Context>
+{context}
+</Context>
+"""
+    human_message = """\
+<Abstract Tool>
+{abstract_tool}
+</Abstract Tool>
+<Concrete Tool>
+{concrete_tool}
+</Concrete Tool>
+"""
 
-Before finalizing your output, check all variable names/references in output_mapping to confirm that they are present in the concrete tool's code. This means that 'output_mapping' should be able to run with the direct output of the source code as a parameter without an errors.
-    """
+    template_planner_message = [
+        SystemMessagePromptTemplate(
+            prompt=PromptTemplate(
+                input_variables=["shot_1", "shot_2", "shot_3", "shot_4", "shot_5"], template=system_message
+            )
+        ),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=["context"], template=context_message)),
+        HumanMessagePromptTemplate(
+            prompt=PromptTemplate(input_variables=["abstract_tool", "concrete_tool"], template=human_message)
+        ),
+    ]
 
-    system_msg = SystemMessagePromptTemplate(
-        prompt=PromptTemplate(input_variables=["shot_1", "shot_2", "shot_3", "shot_4", "shot_5"], template=template_str)
+    template_planner = ChatPromptTemplate(
+        input_variables=["shot_1", "shot_2", "shot_3", "shot_4", "shot_5", "context", "abstract_tool", "concrete_tool"],
+        messages=template_planner_message,
+    )
+    template_planner = template_planner.partial(
+        shot_1=shot_1, shot_2=shot_2, shot_3=shot_3, shot_4=shot_4, shot_5=shot_5
     )
 
-    human_msg = HumanMessagePromptTemplate(
-        prompt=PromptTemplate(
-            input_variables=["abstract_tool", "concrete_tool"],
-            template="Abstract Tool: {abstract_tool}\nConcrete Tool: {concrete_tool}",
-        )
-    )
-
-    template = ChatPromptTemplate(
-        input_variables=["shot_1", "shot_2", "shot_3", "shot_4", "shot_5", "abstract_tool", "concrete_tool"],
-        messages=[system_msg, human_msg],
-    )
-    template = template.partial(shot_1=shot_1, shot_2=shot_2, shot_3=shot_3, shot_4=shot_4, shot_5=shot_5)
-    return template
+    return template_planner
