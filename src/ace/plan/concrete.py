@@ -44,7 +44,6 @@ class SchemaAdaptedTool(ConcreteToolBase):
             raise ValueError(f"Invalid mapping source code: {e}")
 
         # TODO: should verify other things, like that annotations correspond to tool schemas
-        print(self.generate_source())
 
         return self
 
