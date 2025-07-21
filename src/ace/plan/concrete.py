@@ -12,6 +12,7 @@ from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrou
 from langchain_openai import OpenAIEmbeddings
 from pydantic import model_validator
 
+from ..analysis import Analyzer
 from ..logging_config import get_logger
 from ..prompts.concrete_templates import generate_tool_compatibility_json_template
 from ..schema.abstract import AbstractPlan, AbstractTool, AnnotationTransformer
@@ -143,7 +144,7 @@ class ConcretePlannerBase(ABC):
         pass
 
     @abstractmethod
-    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
+    def implement_plan(self, plan: AbstractPlan) -> Optional[dict[str, ConcreteToolBase]]:
         pass
 
 
@@ -155,6 +156,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
     filter_threshold: float
     compat_chain: Runnable
     max_retries: int = 3
+    analyzer: Analyzer
 
     def __init__(
         self,
@@ -178,7 +180,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         # Create compatibility mapping chain
         compat_prompt = generate_tool_compatibility_json_template()
         json_parser = JsonOutputParser()
-        parse_mapping_runnable = RunnableLambda(self.parse_mapping_fn)
+        parse_mapping_runnable = RunnableLambda(self._parse_mapping_fn)
         format_abs_runnable = RunnableLambda(lambda inputs: inputs["abstract_tool"].as_json())
         format_conc_runnable = RunnableLambda(lambda inputs: inputs["concrete_tool"].as_json())
 
@@ -198,8 +200,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         self._generate_tool_embeddings()
         logger.debug("SimpleConcretePlanner initialization completed")
 
-    @staticmethod
-    def parse_mapping_fn(inputs: dict) -> Optional[SchemaAdaptedTool]:
+    def _parse_mapping_fn(self, inputs: dict) -> Optional[SchemaAdaptedTool]:
         if not inputs or ("abstract_tool" not in inputs or "concrete_tool" not in inputs or "mapping" not in inputs):
             raise ValueError("Invalid input format for parse_mapping_fn")
 
@@ -342,7 +343,16 @@ class SimpleConcretePlanner(ConcretePlannerBase):
 
         return tools
 
-    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
+    def implement_plan(self, plan: AbstractPlan) -> Optional[dict[str, ConcreteToolBase]]:
+        concrete_plan = self._implement_plan(plan)
+
+        # Validate concrete plan
+        if concrete_plan is not None:
+            self.analyzer.analyze_post_concrete_plan(plan, concrete_plan)
+
+        return concrete_plan
+
+    def _implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         logger.info(f"Implementing plan with {len(plan.abs_tools)} abstract tools")
         logger.debug(f"Abstract tools: {[tool.name for tool in plan.abs_tools]}")
 
@@ -381,7 +391,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
 
 
 class InfoFlowPlanner(SimpleConcretePlanner):
-    def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
+    def _implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         logger.info(f"Starting information flow analysis for plan with {len(plan.abs_tools)} tools")
 
         # Generate all possible matches for each abstract tool
