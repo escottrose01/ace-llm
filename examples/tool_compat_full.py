@@ -48,7 +48,7 @@ def main():
 
     # Test matching: raw llm invocation
     result = concrete_planner.compat_chain.invoke(
-        {"abstract_tool": abstract_tool.as_json(), "concrete_tool": quickride.as_json()}
+        {"abstract_tool": abstract_tool, "concrete_tool": quickride, "context": ""}
     )
     print("Abstract JSON:")
     print(json.dumps(json.loads(abstract_tool.as_json()), indent=2))
