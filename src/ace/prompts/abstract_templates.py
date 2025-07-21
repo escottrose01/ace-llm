@@ -63,121 +63,165 @@ EMAIL_SUMMARIZER = AbstractTool(
 
 
 def generate_abstract_plan_template() -> ChatPromptTemplate:
-    shot_1: str = f"""
-        # This is an example of a user query that requires using a single abstract app.
+    shot_1: str = f"""\
+## Example: User query using a single abstract app with structured output.
+Query: Generate a poem and count the number of r's
+<Available Tools>
+{POEM_GENERATOR.as_json()}
+</Available Tools>
 
-        User: Generate a poem and count the number of r's
-        Auto-Generated Abstract apps:
-        [{POEM_GENERATOR.as_json()}]
-        
-        Generated Output:
-            def main():
-                poem: str = PoemGenerator("nature")
-                result: int = poem.count('r')
-                result_str: str = str(result)
-                s = "Number of r's in the poem: " + result_str
-                display(s)
-                return result 
-            final_output = main()
-                   
-    """
+Generated Output:
+```python
+def main():
+    poem_result: PoemGenerator = PoemGenerator(theme="nature")
+    poem: str = poem_result.poem
+    r_count: int = 0
+    poem_length: int = len(poem)
 
-    shot_2: str = f"""
-        # This is an example of a user query that requires using two abstract apps and a user input (builtin).
+    for i in range(poem_length):
+        eq: bool = poem[i] == 'r'
+        if eq:
+            r_count += 1
 
-        User input: Please summarize the latest news articles on the topic of AI and send the result in an email 
-                   
-        Auto-Generated Abstract apps:
-        [{NEWS_SUMMARIZER.as_json()}, {EMAIL_SENDER.as_json()}]
-                   
-        Generated Output:
-            def main():
-                news: str = NewsSummarizer("AI")
-                email_addr: str = UserInput()
-                conf: str = EmailSender(email_addr, news)
-                display(conf)
-                return conf
-            final_output = main()
-    """
+    r_count_str: str = str(r_count)
+    s: str = "Number of r's in the poem: " + r_count_str
+    display(s)
+    return r_count
+final_output = main()
+```
+"""
 
-    shot_3: str = f"""
-        # This is an example of a user query that requires using multiple implementations of a single abstract app.
+    shot_2: str = f"""\
+## Example: User query using two abstract apps, with structured outputs.
+Query: Please summarize the latest news articles on the topic of AI and send the result in an email to john@gmail.com
+<Available Tools>
+{NEWS_SUMMARIZER.as_json()}
+{EMAIL_SENDER.as_json()}
+</Available Tools>
 
-        User: Check all my email apps and summarize all unread emails
-        
-        Auto-Generated Abstract apps:
-        [{EMAIL_RETRIEVER.as_json()}, {EMAIL_SUMMARIZER.as_json()}]
+Generated Output:
+```python
+def main():
+    news_result: NewsSummarizer = NewsSummarizer(topic="AI")
+    news_summary: str = news_result.summary
+    email_addr: str = "john@gmail.com"
+    email_result: EmailSender = EmailSender(email_address=email_addr, content=news_summary)
+    confirmation: str = email_result.confirmation
+    display(confirmation)
+    return confirmation
+final_output = main()
+```
+"""
 
-        Generated Output:
-            def main():
-                emails: tuple[str] = ()
-                for app in GetAllImplementations(EmailRetriever):
-                    v = app()
-                    emails += tuple(v)
-                summary: str = EmailSummarizer(emails)
-                display(summary)
-                return summary
-            final_output = main()
-    """
+    shot_3: str = """\
+## Example: User query using control flow.
+User: Pick a string, and count the number of 'r's in it. if the number is odd, display "Hello".
+Auto-Generated Abstract apps:
+<Available Tools>
+</Available Tools>
 
-    template_str = """
-        # Prompt
+Generated Output:
+```python
+def main():
+    magic_string: str = "abracadabra"
+    r_count: int = 0
+    length: int = len(magic_string)
+    for i in range(length):
+        eq: bool = magic_string[i] == 'r'
+        if eq:
+            r_count += 1
+    is_odd: bool = r_count % 2 == 1
+    if is_odd:
+        display("Hello")
+    return r_count
+final_output = main()
+```
+"""
 
-        Objective:
-        Your task is to generate a plan that outlines the steps required to complete a user query.
-        The plan should include the abstract apps that need to be used to complete the task.
-        Each abstract app has a name, description, inputs, and output.
-        The plan should be implemented as a Python function that uses the abstract apps to achieve the desired result.
+    system_message = """\
+# Task
+Generate a Python function plan to solve the user query using only the provided abstract apps and permitted built-in functionality.
 
-        Tools:
-        An abstract app is a tool that performs a specific task and has a well-defined interface.
-        The abstract app has a name, description, inputs, and output.
-        The inputs and output are described using data types and brief descriptions.
-        The abstract app is implemented as a Python function that takes the required inputs and returns the output.
+Key Requirements:
+- Each plan should be a Python function that combines the necessary abstract apps, returning the final result.
+- Use the provided abstract apps, each with a name, description, and defined inputs and outputs.
+- Follow all programming constraints and output format examples given below.
 
-        In addition to abstract tools, you always have access to the following built-in functions:
-        - UserInput(): A function that prompts the user to provide an input.
-        - GetAllImplementations(app_name): A function that returns all implementations of a given abstract app.
-        - display(data : str): This replaces the print function and should be used to display the output.
+Allowed Built-ins:
+- abs, bool, float, int, str, frozenset, all, any, len, pow, round, sum
 
-        Important language notes: the grammar is a restricted subset of the Python language. These additional rules apply:
-        - functions calls CANNOT be used as subexpressions; for example, `s: str = "The answer is:" + str(result)` is not allowed.
-        - instead, do `result_s: = str(result)` and then `s: str = "The answer is: " + result_s`. THIS RULE IS VERY IMPORTANT.
-        - all variables must be declared with types, and all assignments must agree with the declared type.
-        - the main function should be named main() and should return the final output.
-        - the plan should call the function main() and put the final output in the variable final_output.
-        - side effects are disallowed! All variable updates must be done via reconstruction. This means that you cannot modify a variable in place.
+Blacklisted Built-ins (not allowed):
+- open, exec, eval, compile, __import__, input, globals, locals, vars, dir, help, exit, quit, getattr, setattr, delattr, super, memoryview
 
-        In general, if it seems like multiple implementations of an abstract app are needed, you should use the GetAllImplementations language feature.
-        
-        Here are some examples of user queries and the corresponding generated plans using the various planning language features:
+Import Restrictions:
+- Only the "math" module may be imported. Do not use any other imports.
 
-        Example 1:
-        {shot_1}
+Special Tool Provided:
+- display(data: str): use this function to display output (do not use print).
 
-        Example 2:
-        {shot_2}
+Programming Language and Style Rules:
+- Do not use function calls as subexpressions; assign results before continuing.
+- Do not use functions that are not built-in or provided abstract apps.
+- Declare all variables with types, and ensure assignments match these types.
+- Assign outputs of tools to a variable that has the correct type annotation.
+- Extract fields from tool outputs into variables with accurate types before using them.
+- The main function must be named main(), and it should return the computed output.
+- Assign the return value of main() to final_output.
+- Avoid side effects or in-place updates to variables; instead, recompute values when necessary.
 
-        Example 3:
-        {shot_3}
+Instructions:
+- Follow the syntactic and semantic rules above.
+- Output only the required code without additional commentary, markdown code blocks, explanations, or text.
+- Use only the tools, built-ins, and modules specified above.
 
+# Output Format
 
-        Use the following tools to complete the user query:
-        {tools}
+Directly output the Python function plan as specified, without markdown code blocks or explanatory text. The output must match the structure shown in the examples.
 
-        
-        You MUST STRICTLY follow the format suggested by the above provided output examples. Only answer with the specified Python function.
-    """
+# Notes
+- When displaying data, use only the display function provided.
+- Any use of blacklisted functionality or deviations from the specified style will result in invalid output.
+
+# Examples
+<WARNING>Do not use the tools used in the below examples.</WARNING>
+<Examples>
+{shot_1}
+{shot_2}
+{shot_3}
+</Examples>
+"""
+
+    tools_message = """\
+# Tools
+You may use the following *below* abstract apps. Any apps listed prior to this message are not available to you, and you *should not* use them.
+<Available Tools>
+{tools}
+</Available Tools>
+"""
+
+    context_message = """\
+# Additional System Context
+The following context clarifies the operational environment of the agent. Use it to understand how tools will interact with the environment and what constraints apply.
+<Context>
+{context}
+</Context>
+"""
+
+    human_message = """\
+{query}
+"""
 
     template_planner_message = [
         SystemMessagePromptTemplate(
-            prompt=PromptTemplate(input_variables=["shot_1", "shot_2", "shot_3", "tools"], template=template_str)
+            prompt=PromptTemplate(input_variables=["shot_1", "shot_2", "shot_3"], template=system_message)
         ),
-        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["input"], template="User Query: {input}")),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=["tools"], template=tools_message)),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=["context"], template=context_message)),
+        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["query"], template=human_message)),
     ]
 
     template_planner = ChatPromptTemplate(
-        input_variables=["shot_1", "shot_2", "shot_3", "tools", "input"], messages=template_planner_message
+        input_variables=["shot_1", "shot_2", "shot_3", "tools", "context", "query"], messages=template_planner_message
     )
 
     template_planner = template_planner.partial(shot_1=shot_1, shot_2=shot_2, shot_3=shot_3)
@@ -185,232 +229,69 @@ def generate_abstract_plan_template() -> ChatPromptTemplate:
 
 
 def generate_abstract_tool_template() -> ChatPromptTemplate:
-    tools_output_format = """
-        {
-            "apps": 
-            [
-                {
-                    "name": "ToolNameA",
-                    "input": {
-                        "query": str
-                    },
-                    "output": "result_1"
-                },
-                {
-                    "name": "ToolNameB",
-                    "input": {
-                        "query": str
-                    },
-                    "output": "result_2"
-                }
-            ]
-        }
-        """
+    system_message = """\
+# Task
+Generate a list of external tool schemas relevant to a given user task. Only enumerate possible APIs, wrappers, or utilities that might help a downstream agent solve the task. For trivial requests solvable with basic code (e.g., arithmetic), output none.
 
-    tools_output_empty_format = """
-    {
-        "apps": []
-    }
-    """
+Each tool schema must be a JSON object and must include:
+- name (PascalCase, e.g., "WeatherLookup" or "StockPriceQuery")
+- description
+- inputs: (type and description for each parameter, only if required)
+- output: (type and description)
 
-    shot_1: str = """
-        # This is an example of a user query that requires a single tool
-        
-        User: I would like to know what the temperature it in Brooklyn at 6pm today.
-        
-        Generated output:
-        {
-            "apps": 
-            [
-                {
-                    "name": "TemperatureChecker",
-                    "description": "TemperatureChecker is a tool used to retrieve the temperature.",
-                    "inputs": {
-                        "time": {
-                            "type": "str",
-                            "description": "Standard time to check temperature at"
-                        }
-                        "location": {
-                            "type": "str",
-                            "description": "Location (as a name) to check temperature at"
-                        }
-                    },
-                    "output": {
-                        "type": "float",
-                        "description": "The temperature in farenheit of the specified time and location"
-                    }
-                },
-            ]
-        }
-    """
+Allowed types: int, float, str, bool
 
-    shot_2: str = """
-    # This is an example of a user query that requires a shopping tool.
+Do not solve, break down, or sequence the user's task. Output only the relevant tool schemas in the format:
+{{
+  "apps": [ ...tool schemas... ]
+}}
 
-    User: I would like to order a pizza online for delivery.
+If no tools are needed, output:
+{{
+  "apps": []
+}}
 
-    Generated output:
-    {
-        "apps": 
-        [
-            {
-                "name": "PizzaOrderingTool",
-                "description": "A tool that helps users place pizza orders online for delivery",
-                "inputs": {
-                    "pizza_item": {
-                        "type": "str",
-                        "description": "The name of the food item to order"
-                    },
-                    "Location": {
-                        "type": "str",
-                        "description": "Delivery location"
-                    }
-                },
-                "output": {
-                    "type": "str",
-                    "description": "A confirmation of the order being placed"
-                }
-            }
-        ]
-    }
-    """
+# Output Format
+Return valid JSON only:
+- Field: "apps"
+- Value: list of tool schemas as defined above (or empty list)
+- Ensure every tool "name" is written in PascalCase
 
-    shot_3 = """
-    User Query: Please post a message saying "Release is scheduled for tomorrow at 10 AM" to the #project-updates channel.
-    Generated Output:
-    {"apps":
-        [
-            {
-                "name": "SlackSendMessage",
-                "description": "Sends a message to a specified Slack channel.",
-                "inputs": {
-                    "channel_name": {
-                    "type": "str",
-                    "description": "The name of the Slack channel."
-                    },
-                    "message": {
-                    "type": "str",
-                    "description": "The content of the message to post."
-                    }
-                },
-                "output": {
-                    "type": "object",
-                    "description": "An object containing the posted message ID and timestamp."
-                }
-            }
-        ]
-    }
-    """
+# Example Inputs / Outputs
+User: What's the temperature in Brooklyn at 6pm today?
+Output: {{ "apps": [ {{ "name": "WeatherLookup", "description": "...", "inputs": {{...}}, "output": {{...}} }} ] }}
 
-    shot_4 = """
-    User Query: Can you please list my current subscriptions?
-    Abstract Tool:
-    {
-        "apps": [
-            {
-                "name": "SubscriptionLister",
-                "description": "Retrieves a list of existing subscriptions and their services.",
-                "inputs": {},
-                "output": {
-                    "type": "list",
-                    "description": "A list of subscriptions with their respective services and payment amounts"
-                }
-            },
-        ]
-    }
-    """
+User: What is 3 + 4?
+Output: {{ "apps": [] }}
 
-    template_str = """
-        '# Prompt
-        
-        Objective:
-        Your to act as a tool generator in charge of devising a strategy to help users complete a given task. 
-        These tasks may or may not involve the usage of external tools. Your specific role is to devise 
-        a number of tools (can be 0 or can be many) that are necessary to complete the user task.
-        Assume that each tool is designed for a particular task.
-        
-                
-        Tools:
-        A tool consists of an LLM wrapper and a function which may use an external utility (e.g., an API). 
-        The function's implementation is not relevant for your purposes. The tool has a name and a description 
-        which helps the LLM wrapper delegate responsibilities. Your responsibility is to create signatures 
-        for tools that are necessary for completing the user tasks according to the following formats. 
-        The created tool signatures should be brief yet informative.
-        
-        Tool format:
-        {{
-            "name": "ToolName",
-            "description": "A brief description of what the tool does",
-            "inputs": {{
-                "parameter_1_name": {{
-                    "type": "data type of the parameter,
-                    "description": "A brief description of the parameter"
-                }}
-            }},
-            "output": {{
-                "type": "data type of the output,
-                "description": "A brief description of the output"
-            }}
-        }}
-        
-        Data types that can be used are a primitive
-        Primitives can be an integer, float, or str.
-        
-        Once you have completed your thought process, generate the structured JSON output 
-        following this format:
-        
-        Plan format:
-        {output_format} 
-        
-        If no tools are needed to address the user query, do not create any tools, instead follow this JSON format. Note that if a prompt can be completed with a single Python script (e.g., an arithmetic request), no tools are needed.
-        
-        Empty plan format:
-        {output_format_empty}
-        
-        Here is an example for reference:
-        Example 1:
-        {shot_1}
-        
-        Example 2:
-        {shot_2}
-        
-        Example 3:
-        {shot_3}
-        
-        Example 4:
-        {shot_4}
-        
-        To remember:
-        - The parameters generated should be retrievable from the user query. Do not include inputs that are not mentioned in the input.
-        - Do NOT generate tools that can be covered using simple Python code, for example "NumberAdder", "StringConcatenator", "ResponseComparator" ARE NOT NEEDED.
-        """
+# Notes
+- Always use PascalCase for the "name" field of each tool schema.
+- Do not attempt to answer, solve, or decompose the user's task.
+- Only output tool schemas in the specified format.
+- Strongly prefer single return values for outputs
+"""
+
+    context_message = """\
+# Additional System Context
+The following context clarifies the operational environment of the agent. Use this context to shape the types of tools generated. If the context mentions specific tools, you might want to generate them.
+<Context>
+{context}
+</Context>
+"""
+
+    human_message = """\
+{query}
+"""
 
     template_planner_message = [
-        SystemMessagePromptTemplate(
-            prompt=PromptTemplate(
-                input_variables=["output_format", "output_format_empty", "shot_1", "shot_2", "shot_3", "shot_4"],
-                template=template_str,
-            )
-        ),
-        HumanMessagePromptTemplate(
-            prompt=PromptTemplate(
-                input_variables=["input"],
-                template="User Query: {input} \n Ensure that a tool is always used if applicable.",
-            )
-        ),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=[], template=system_message)),
+        SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=["context"], template=context_message)),
+        HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["query"], template=human_message)),
     ]
 
     template_planner = ChatPromptTemplate(
-        input_variables=["output_format", "output_format_empty", "shot_1", "shot_2", "shot_3", "shot_4", "input"],
+        input_variables=["context", "query"],
         messages=template_planner_message,
     )
 
-    template_planner = template_planner.partial(
-        output_format=tools_output_format,
-        output_format_empty=tools_output_empty_format,
-        shot_1=shot_1,
-        shot_2=shot_2,
-        shot_3=shot_3,
-        shot_4=shot_4,
-    )
     return template_planner

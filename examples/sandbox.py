@@ -1,11 +1,10 @@
 import argparse
 import logging
 
-from pydantic import BaseModel
-
 from ace.execute.orchestrator import PlanOrchestrator
 from ace.schema.abstract import AbstractPlan
 from ace.schema.concrete import CustomTool
+from pydantic import BaseModel
 
 
 class MultiplierArgs(BaseModel):
@@ -17,7 +16,7 @@ class MultiplierOutput(BaseModel):
     product: int
 
 
-multiplier_source = "def main(a : int, b : int):\n    # Multiply the two numbers\n    return a * b\n"
+multiplier_source = "def main(a: int, b: int):\n" "    # Multiply the two numbers\n" "    return {'product': a * b}\n"
 
 
 class CountRsArgs(BaseModel):
@@ -29,9 +28,9 @@ class CountRsOutput(BaseModel):
 
 
 count_rs_source = (
-    "def main(text : str):\n"
+    "def main(text: str):\n"
     "    # Count 'r' (case-insensitive) in the text\n"
-    "    return sum(1 for c in text if c.lower() == 'r')\n"
+    "    return {'count': sum(1 for c in text if c.lower() == 'r')}\n"
 )
 
 multiplier_tool = CustomTool(
@@ -61,9 +60,9 @@ count_rs_tool = CustomTool(
 plan_script = """
 def main():
     display("Plan started.")
-    mult_result = invoke("Multiplier", a=3, b=7)
+    mult_result: float = invoke("Multiplier", a=3, b=7).product
     display("Multiplier result: " + str(mult_result))
-    count_result = invoke("CountRs", text="Rural road in the rain.")
+    count_result: int = invoke("CountRs", text="Rural road in the rain.").count
     display("CountRs result: " + str(count_result))
     return "Success"
 final_output = main()

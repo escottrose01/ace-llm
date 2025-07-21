@@ -1,9 +1,8 @@
-from pydantic import create_model
-
 from ace.execute import PlanOrchestrator
 from ace.plan.concrete import SchemaAdaptedTool
 from ace.schema import AbstractPlan, AbstractTool
 from ace.tools.manager import ToolManager
+from pydantic import create_model
 
 
 def main():
@@ -18,7 +17,7 @@ def main():
     )
 
     input_mapping = "def input_mapping(src, dst): return {'start_point': src, 'end_point': dst}"
-    output_mapping = "def output_mapping(fare): return fare"
+    output_mapping = "def output_mapping(result): return {'fare': result.result}"
 
     print(input_mapping, output_mapping)
 
@@ -45,10 +44,14 @@ def main():
     ]
 
     plan_script = (
-        "src : str = 'Main Street'\n"
-        "dst : str = 'Cooper Street'\n"
-        "v1 = RideShare(src=src, dst=dst)\n"
-        "display(f'Fare: {v1}')\n"
+        "def main():\n"
+        "    src: str = 'Main Street'\n"
+        "    dst: str = 'Cooper Street'\n"
+        "    v1: RideShare = RideShare(src=src, dst=dst)\n"
+        "    fare: float = v1.fare\n"
+        "    display(f'Fare: {fare}')\n"
+        "    return fare\n"
+        "final_output = main()"
     )
 
     plan = AbstractPlan(script=plan_script, abs_tools=abs_tools)

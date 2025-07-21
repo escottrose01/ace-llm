@@ -1,18 +1,20 @@
 import ast
 import itertools
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import astor
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
 from langchain_openai import OpenAIEmbeddings
+from pydantic import model_validator
 
 from ..logging_config import get_logger
 from ..prompts.concrete_templates import generate_tool_compatibility_json_template
-from ..schema.abstract import AbstractPlan, AbstractTool
+from ..schema.abstract import AbstractPlan, AbstractTool, AnnotationTransformer
 from ..schema.concrete import ConcreteToolBase
 from ..schema.infoflow import MemoryModel
 from ..schema.lattice import SubsetLattice
@@ -26,6 +28,24 @@ class SchemaAdaptedTool(ConcreteToolBase):
     wrapped_tool: ConcreteToolBase
     input_mapping_source: str
     output_mapping_source: str
+
+    @model_validator(mode="after")
+    def validate_mappings(self) -> "SchemaAdaptedTool":
+        if not self.input_mapping_source:
+            raise ValueError("input_mapping_source must be defined")
+        if not self.output_mapping_source:
+            raise ValueError("output_mapping_source must be defined")
+
+        # Validate that the mappings are valid Python code
+        try:
+            ast.parse(self.input_mapping_source)
+            ast.parse(self.output_mapping_source)
+        except SyntaxError as e:
+            raise ValueError(f"Invalid mapping source code: {e}")
+
+        # TODO: should verify other things, like that annotations correspond to tool schemas
+
+        return self
 
     def generate_source(self) -> str:
         underlying_ast = self.wrapped_tool.compile()
@@ -44,8 +64,14 @@ class SchemaAdaptedTool(ConcreteToolBase):
 
         field_names = list(self.args_schema.model_fields.keys())
 
+        # Parse and transform the input and output mapping sources
         input_mapping = ast.parse(self.input_mapping_source).body[0]
+        input_mapping = AnnotationTransformer().visit(input_mapping)
+        input_mapping = ast.fix_missing_locations(input_mapping)
+
         output_mapping = ast.parse(self.output_mapping_source).body[0]
+        output_mapping = AnnotationTransformer().visit(output_mapping)
+        output_mapping = ast.fix_missing_locations(output_mapping)
 
         # Begin building the main function
         main_body = []
@@ -120,11 +146,6 @@ class ConcretePlannerBase(ABC):
     def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         pass
 
-    @property
-    @abstractmethod
-    def results(self) -> list[dict]:
-        pass
-
 
 class SimpleConcretePlanner(ConcretePlannerBase):
     tool_manager: ToolManager
@@ -133,31 +154,136 @@ class SimpleConcretePlanner(ConcretePlannerBase):
     faiss_store: FAISS
     filter_threshold: float
     compat_chain: Runnable
-    _results: list[dict]
+    max_retries: int = 3
 
     def __init__(
         self,
         tool_manager: ToolManager,
         base_llm: BaseChatModel,
         embedding_model: OpenAIEmbeddings,
+        context: str = "",
         filter_threshold: float = 0.8,
+        max_retries: int = 3,
     ):
         logger.info("Initializing SimpleConcretePlanner")
         self.tool_manager = tool_manager
         self.base_llm = base_llm
         self.embeddings = embedding_model
         self.filter_threshold = filter_threshold
-        self._results = []
+        self.context = context
 
         logger.debug(f"Filter threshold: {filter_threshold}")
         logger.debug(f"Available tools: {len(tool_manager.tools)}")
 
+        # Create compatibility mapping chain
         compat_prompt = generate_tool_compatibility_json_template()
         json_parser = JsonOutputParser()
-        self.compat_chain = compat_prompt | self.base_llm | json_parser
+        parse_mapping_runnable = RunnableLambda(self.parse_mapping_fn)
+        format_abs_runnable = RunnableLambda(lambda inputs: inputs["abstract_tool"].as_json())
+        format_conc_runnable = RunnableLambda(lambda inputs: inputs["concrete_tool"].as_json())
+
+        self.compat_chain = (
+            RunnablePassthrough.assign(
+                mapping=(
+                    RunnablePassthrough.assign(abstract_tool=format_abs_runnable)
+                    | RunnablePassthrough.assign(concrete_tool=format_conc_runnable)
+                    | compat_prompt
+                    | self.base_llm
+                    | json_parser
+                )
+            )
+            | RunnablePassthrough.assign(result=parse_mapping_runnable)
+        ).with_retry(stop_after_attempt=max_retries)
 
         self._generate_tool_embeddings()
         logger.debug("SimpleConcretePlanner initialization completed")
+
+    @staticmethod
+    def parse_mapping_fn(inputs: dict) -> Optional[SchemaAdaptedTool]:
+        if not inputs or ("abstract_tool" not in inputs or "concrete_tool" not in inputs or "mapping" not in inputs):
+            raise ValueError("Invalid input format for parse_mapping_fn")
+
+        abstract_tool: AbstractTool = inputs["abstract_tool"]
+        concrete_tool: ConcreteToolBase = inputs["concrete_tool"]
+        mapping_result: dict = inputs["mapping"]
+
+        if not mapping_result:
+            raise ValueError("Mapping result must not be empty")
+        if "status" not in mapping_result:
+            raise ValueError("Mapping result must contain 'status' key")
+
+        result = None
+        if mapping_result["status"] == "failure":
+            pass
+        elif mapping_result["status"] == "success":
+            input_mapping: str = inputs["mapping"].get("input_mapping")
+            output_mapping: str = inputs["mapping"].get("output_mapping")
+
+            result = SchemaAdaptedTool(
+                name=concrete_tool.name,
+                provider=concrete_tool.provider,
+                description=concrete_tool.description,
+                clearances=concrete_tool.clearances,
+                permissions=concrete_tool.permissions,
+                args_schema=abstract_tool.args_schema,
+                output_schema=abstract_tool.output_schema,
+                wrapped_tool=concrete_tool,
+                input_mapping_source=input_mapping,
+                output_mapping_source=output_mapping,
+            )
+        else:
+            raise ValueError(f"Invalid mapping status: {mapping_result['status']}")
+
+        return result
+
+    def generate_all_feasible_matches(self, abstract_tools: list[AbstractTool]) -> list[list[ConcreteToolBase]]:
+        batch = []
+        for abstract_tool in abstract_tools:
+            query = f"{abstract_tool.name}: {abstract_tool.description}"
+            try:
+                hits = self.faiss_store.search(
+                    query,
+                    search_type="similarity_score_threshold",
+                    threshold=self.filter_threshold,
+                    k=100,  # should be no limit, but seems API forces one
+                )
+                hit_names = [hit.metadata["name"] for hit in hits]
+                logger.info(f"Found {len(hit_names)} potential matches: {hit_names}")
+            except Exception as e:
+                logger.error(f"Embedding search failed: {e}", exc_info=True)
+                raise
+
+            # Conform concrete tools to abstract tool schema
+            for i, tool_name in enumerate(hit_names):
+                logger.debug(f"Evaluating compatibility {i + 1}/{len(hit_names)}: {tool_name}")
+
+                concrete_tool = self.tool_manager.get_by_name(tool_name)
+                if concrete_tool is None:
+                    logger.warning(f"Tool {tool_name} not found in tool manager")
+                    continue
+
+                batch.append(
+                    {
+                        "context": self.context,
+                        "abstract_tool": abstract_tool,
+                        "concrete_tool": concrete_tool,
+                    }
+                )
+
+        logger.info(f"Generated {len(batch)} compatibility checks for {len(abstract_tools)} abstract tools")
+
+        # Run batch compatibility checks
+        matches = self.compat_chain.batch(batch)
+        mappings: list[list[ConcreteToolBase]] = [[] for _ in range(len(abstract_tools))]
+        abstract_index: dict[str, int] = {tool.name: i for i, tool in enumerate(abstract_tools)}
+
+        for m in matches:
+            abstract_tool = m["abstract_tool"]
+            if m["result"] is not None:
+                adapted_tool = m["result"]
+                mappings[abstract_index[abstract_tool.name]].append(adapted_tool)
+
+        return mappings
 
     def generate_matches_for_tool(self, abstract_tool: AbstractTool) -> list[ConcreteToolBase]:
         logger.debug(f"Finding concrete tool matches for abstract tool: {abstract_tool.name}")
@@ -181,71 +307,30 @@ class SimpleConcretePlanner(ConcretePlannerBase):
             raise
 
         # Conform concrete tools to abstract tool schema
-        abs_tool_json = abstract_tool.as_json()
-        tools = []
-        self._results = []
-
-        for i, tool_name in enumerate(hit_names):
-            logger.debug(f"Evaluating compatibility {i + 1}/{len(hit_names)}: {tool_name}")
-
+        batch = []
+        for tool_name in hit_names:
             concrete_tool = self.tool_manager.get_by_name(tool_name)
             if concrete_tool is None:
                 logger.warning(f"Tool {tool_name} not found in tool manager")
                 continue
 
-            concrete_tool_json = concrete_tool.as_json()
-            result = self.compat_chain.invoke({"abstract_tool": abs_tool_json, "concrete_tool": concrete_tool_json})
+            batch.append(
+                {
+                    "context": self.context,
+                    "abstract_tool": abstract_tool,
+                    "concrete_tool": concrete_tool,
+                }
+            )
 
-            self._results.append(result)
-            logger.debug(f"Compatibility result for {tool_name}: {result.get('status', 'unknown')}")
+        logger.info(f"Generated {len(batch)} compatibility checks for abstract tool: {abstract_tool.name}")
 
-            if result["status"] == "success":
-                input_mapping = result.get("input_mapping")
-                output_mapping = result.get("output_mapping")
-
-                if not input_mapping or not output_mapping:
-                    logger.warning(
-                        f"Missing mapping for {tool_name}: input={bool(input_mapping)}, output={bool(output_mapping)}"
-                    )
-                    continue
-
-                # TODO: pydantic kind of requires constructor to use all fields
-                # but we should see if we can make this cleaner with validators
-                adapted_tool = SchemaAdaptedTool(
-                    name=concrete_tool.name,
-                    provider=concrete_tool.provider,
-                    description=concrete_tool.description,
-                    clearances=concrete_tool.clearances,
-                    permissions=concrete_tool.permissions,
-                    args_schema=abstract_tool.args_schema,
-                    output_schema=abstract_tool.output_schema,
-                    wrapped_tool=concrete_tool,
-                    input_mapping_source=input_mapping,
-                    output_mapping_source=output_mapping,
-                )
+        # Run batch compatibility checks
+        matches = self.compat_chain.batch(batch)
+        tools: list[ConcreteToolBase] = []
+        for m in matches:
+            if m["result"] is not None:
+                adapted_tool: SchemaAdaptedTool = m["result"]
                 tools.append(adapted_tool)
-                logger.debug(f"Successfully adapted tool: {tool_name}")
-
-                # Log detailed tool adaptation using structured logging
-                logger.log_tool_match(
-                    abstract_tool.name,
-                    tool_name,
-                    {"input_mapping": input_mapping, "output_mapping": output_mapping},
-                )
-                try:
-                    source_preview = (
-                        adapted_tool.generate_source()[:500] + "..."
-                        if len(adapted_tool.generate_source()) > 500
-                        else adapted_tool.generate_source()
-                    )
-                    logger.log_structured("debug", f"TOOL_SOURCE_{tool_name}", source_preview)
-                except Exception as e:
-                    logger.warning(f"Could not generate source preview: {e}")
-            else:
-                logger.debug(f"Tool {tool_name} rejected: {result.get('reason', 'unknown reason')}")
-                logger.log_structured("debug", f"TOOL_COMPAT_FAILED_{tool_name}", str(result))
-
-        logger.info(f"Generated {len(tools)} compatible tools for abstract tool {abstract_tool.name}")
 
         # Log summary using structured logging
         tool_list = [f"{tool.name} ({tool.provider})" for tool in tools]
@@ -257,30 +342,23 @@ class SimpleConcretePlanner(ConcretePlannerBase):
 
         return tools
 
-    @property
-    def results(self) -> list[dict]:
-        return self._results
-
     def implement_plan(self, plan: AbstractPlan) -> dict[str, ConcreteToolBase] | None:
         logger.info(f"Implementing plan with {len(plan.abs_tools)} abstract tools")
         logger.debug(f"Abstract tools: {[tool.name for tool in plan.abs_tools]}")
 
+        all_matches = self.generate_all_feasible_matches(plan.abs_tools)
+
         # Naive: just pick the first match for each tool
-        concrete_tools = []
+        tool_mapping = {}
         for i, abstract_tool in enumerate(plan.abs_tools):
             logger.debug(f"Finding implementation for tool {i + 1}/{len(plan.abs_tools)}: {abstract_tool.name}")
-            matches = self.generate_matches_for_tool(abstract_tool)
+            matches = all_matches[i]
             if not matches:
                 logger.info(f"No matches found for abstract tool: {abstract_tool.name}")
-                return None  # No matches available for this tool
-
+                return None
             selected_tool = matches[0]
-            concrete_tools.append(selected_tool)
+            tool_mapping[abstract_tool.name] = selected_tool
             logger.info(f"Selected concrete tool for {abstract_tool.name}: {selected_tool.name}")
-
-        tool_mapping = {
-            abstract_tool.name: concrete_tool for abstract_tool, concrete_tool in zip(plan.abs_tools, concrete_tools)
-        }
 
         logger.info("Plan implementation completed successfully")
         logger.debug(f"Tool mapping: {list(tool_mapping.keys())} -> {[tool.name for tool in tool_mapping.values()]}")
@@ -307,7 +385,7 @@ class InfoFlowPlanner(SimpleConcretePlanner):
         logger.info(f"Starting information flow analysis for plan with {len(plan.abs_tools)} tools")
 
         # Generate all possible matches for each abstract tool
-        matches = [self.generate_matches_for_tool(abstract_tool) for abstract_tool in plan.abs_tools]
+        matches = self.generate_all_feasible_matches(plan.abs_tools)
 
         total_combinations = 1
         for match_list in matches:
