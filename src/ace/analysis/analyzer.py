@@ -44,6 +44,12 @@ class Analyzer:
     def __init__(self, registry: Optional[ValidatorRegistry] = None):
         self.registry = registry or ValidatorRegistry()
 
+    def register(self, validator: BaseValidator) -> None:
+        self.registry.register(validator)
+
+    def unregister(self, validator_name: str) -> None:
+        self.registry.unregister(validator_name)
+
     def analyze_post_abstract_tools(self, tools: list[AbstractTool]) -> None:
         validators = self.registry.get_validators()
         self._run_post_abstract_tools_validators(validators, tools)
@@ -54,8 +60,8 @@ class Analyzer:
 
     def analyze_post_concrete_plan(
         self,
-        concrete_plan: dict[str, ConcreteToolBase],
         abstract_plan: AbstractPlan,
+        concrete_plan: dict[str, ConcreteToolBase],
     ) -> None:
         validators = self.registry.get_validators()
         self._run_post_concrete_plan_validators(validators, abstract_plan, concrete_plan)
