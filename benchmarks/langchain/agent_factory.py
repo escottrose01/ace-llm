@@ -152,7 +152,7 @@ class ACEAgentLangChain:
         try:
             response = requests.get(f"{self.service_url}/history")
             if response.status_code == 200:
-                steps = response.json().get("steps", [])
+                steps = response.json().get("history", [])
                 steps = [(AgentAction(**action), output) for action, output in steps]
                 return steps
             else:
