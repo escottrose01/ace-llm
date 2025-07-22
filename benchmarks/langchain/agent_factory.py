@@ -174,12 +174,11 @@ class ACEAgentLangChain:
 
 
 class AgentFactory:
-    def __init__(self, agent, task, service_url, extra_context=None):
+    def __init__(self, agent, task, service_url):
         self.agent = agent
         self.task = task
         self.service_url = service_url
-        self.extra_context = extra_context
 
     def __call__(self, *args):
-        agent = ACEAgentLangChain(self.agent, self.task, self.service_url, self.extra_context)
+        agent = ACEAgentLangChain(self.agent, self.task, self.service_url)
         return RunnableLambda(agent.invoke)
