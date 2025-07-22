@@ -256,6 +256,8 @@ Your job is to compare these two tools to determine compatibility based on the f
 - Ensure that all items being returned in "input_mapping" are valid parameters in the concrete tool
 - Vague terms such as "keyword", "term" or "id" are very flexible and should be treated as umbrella terms, where they can be compatible with other terms such as "name", "user", "email", etc.
 
+- Please be lenient when matching output schemas. Just make it work somehow!
+
 # Examples
 <Examples>
 {shot_1}

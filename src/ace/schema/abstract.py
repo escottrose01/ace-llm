@@ -39,15 +39,50 @@ class ToolCallTransformer(ast.NodeTransformer):
 
 
 class AnnotationTransformer(ast.NodeTransformer):
-    """Converts attribute access (x.y) to string indexing (x["y"]) in the AST."""
+    """Converts attribute access (x.y) to string indexing (x["y"])."""
+
+    # TODO: this is a hotfix. The correct implementation will use the type system more directly.
+    def __init__(self, abstract_tools: list[AbstractTool]):
+        self.abstract_tools = abstract_tools
+        # Create mapping from tool name to output schema fields
+        self.tool_output_fields = {}
+        for tool in abstract_tools:
+            self.tool_output_fields[tool.name] = set(tool.output_schema.model_fields.keys())
+
+        # Track variables annotated with tool output types
+        self.tool_output_vars = {}  # var_name -> tool_name
+
+    def visit_AnnAssign(self, node):
+        """Handle annotated assignments like: var: ToolType = ..."""
+        self.generic_visit(node)
+
+        # Check if the annotation is a tool output type
+        if (
+            isinstance(node.annotation, ast.Name)
+            and node.annotation.id in self.tool_output_fields
+            and isinstance(node.target, ast.Name)
+        ):
+            # Track this variable as having a tool output type
+            self.tool_output_vars[node.target.id] = node.annotation.id
+
+        return node
 
     def visit_Attribute(self, node):
         self.generic_visit(node)
-        return ast.Subscript(
-            value=node.value,
-            slice=ast.Constant(value=node.attr),
-            ctx=node.ctx,
-        )
+
+        # Only transform if:
+        # 1. The base is a variable we're tracking as a tool output
+        # 2. The attribute is actually a field in that tool's output schema
+        if isinstance(node.value, ast.Name) and node.value.id in self.tool_output_vars:
+            tool_name = self.tool_output_vars[node.value.id]
+            if node.attr in self.tool_output_fields[tool_name]:
+                return ast.Subscript(
+                    value=node.value,
+                    slice=ast.Constant(value=node.attr),
+                    ctx=node.ctx,
+                )
+
+        return node
 
 
 class AbstractPlan(BaseModel):
@@ -78,8 +113,8 @@ class AbstractPlan(BaseModel):
         transformer = ToolCallTransformer(tool_functions)
         prog = transformer.visit(prog)
 
-        # Convert attribute access to string indexing
-        annotation_transformer = AnnotationTransformer()
+        # Convert attribute access to string indexing (only for tool outputs)
+        annotation_transformer = AnnotationTransformer(self.abs_tools)
         prog = annotation_transformer.visit(prog)
         ast.fix_missing_locations(prog)
 
