@@ -132,7 +132,19 @@ class PlanGrammarValidator(ast.NodeVisitor):
     )
 
     # Primitive types that are always allowed
-    PRIMITIVE_TYPES = frozenset({"bool", "float", "int", "str", "frozenset", "tuple"})
+    PRIMITIVE_TYPES = frozenset(
+        {
+            "bool",
+            "float",
+            "int",
+            "str",
+            "frozenset",
+            "tuple[bool]",
+            "tuple[float]",
+            "tuple[int]",
+            "tuple[str]",
+        }
+    )
 
     # Blacklisted builtin functions
     BLACKLISTED_BUILTINS = frozenset(
