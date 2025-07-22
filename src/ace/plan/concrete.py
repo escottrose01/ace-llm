@@ -1,11 +1,21 @@
 import ast
 import itertools
+import warnings
 from abc import ABC, abstractmethod
 from typing import Optional
+
+# Suppress the relevance score warning from FAISS
+# This must come before importing FAISS
+warnings.filterwarnings(
+    "ignore",
+    message=r"^Relevance scores must be between 0 and 1.*",
+    category=UserWarning,
+)
 
 import astor
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
@@ -264,13 +274,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         for abstract_tool in abstract_tools:
             query = f"{abstract_tool.name}: {abstract_tool.description}"
             try:
-                hits = self.faiss_store.search(
-                    query,
-                    search_type="similarity_score_threshold",
-                    threshold=self.filter_threshold,
-                    k=100,  # should be no limit, but seems API forces one
-                )
-                hit_names = [hit.metadata["name"] for hit in hits]
+                hit_names = self._filter_tools(query)
                 logger.info(f"Found {len(hit_names)} potential matches: {hit_names}")
             except Exception as e:
                 logger.error(f"Embedding search failed: {e}", exc_info=True)
@@ -317,13 +321,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         logger.debug(f"Embedding search query: {query}")
 
         try:
-            hits = self.faiss_store.search(
-                query,
-                search_type="similarity_score_threshold",
-                threshold=self.filter_threshold,
-                k=100,  # should be no limit, but seems API forces one
-            )
-            hit_names = [hit.metadata["name"] for hit in hits]
+            hit_names = self._filter_tools(query)
             logger.info(f"Found {len(hit_names)} potential matches: {hit_names}")
         except Exception as e:
             logger.error(f"Embedding search failed: {e}", exc_info=True)
@@ -365,6 +363,16 @@ class SimpleConcretePlanner(ConcretePlannerBase):
 
         return tools
 
+    def _filter_tools(self, query: str) -> list[str]:
+        hits = self.faiss_store.similarity_search_with_relevance_scores(
+            query=query,
+            k=len(self.tool_manager.tools),
+        )
+        filtered_hits = [(hit, score) for hit, score in hits if score >= self.filter_threshold]
+        filtered_hits.sort(key=lambda x: x[1], reverse=True)
+        hit_names = [hit.metadata["name"] for hit, score in filtered_hits]
+        return hit_names
+
     def implement_plan(self, plan: AbstractPlan) -> Optional[dict[str, ConcreteToolBase]]:
         concrete_plan = self._implement_plan(plan)
 
@@ -405,7 +413,9 @@ class SimpleConcretePlanner(ConcretePlannerBase):
             ]
             logger.debug(f"Created {len(tool_documents)} tool documents")
 
-            self.faiss_store = FAISS.from_documents(tool_documents, self.embeddings)
+            self.faiss_store = FAISS.from_documents(
+                tool_documents, self.embeddings, distance_strategy=DistanceStrategy.COSINE
+            )
             logger.info(f"Generated embeddings for {len(tool_documents)} tools")
         except Exception as e:
             logger.error(f"Failed to generate tool embeddings: {e}", exc_info=True)
