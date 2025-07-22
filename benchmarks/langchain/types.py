@@ -82,7 +82,7 @@ class GetFoodCaloriesOutputType(BaseModel):
 
 
 class GetFoodAllergicIngredientsOutputType(BaseModel):
-    result: str
+    result: list[str]
 
 
 class GetCurrentUserIdOutputType(BaseModel):
