@@ -116,8 +116,8 @@ def main(args: argparse.Namespace):
     conc_model = ModelsEnum(args.conc_model)
     embedding_model = EmbeddingsEnum(args.embedding_model)
 
-    abs_llm = ChatOpenAI(model=abs_model.value, temperature=0.8)
-    conc_llm = ChatOpenAI(model=conc_model.value, temperature=0.8)
+    abs_llm = ChatOpenAI(model=abs_model.value, temperature=1.0)
+    conc_llm = ChatOpenAI(model=conc_model.value, temperature=1.0)
     embedding = OpenAIEmbeddings(model=embedding_model.value)
 
     # Bridge between LangChain and ACE
