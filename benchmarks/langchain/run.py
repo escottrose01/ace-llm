@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import json
+import logging
 import uuid
 from enum import Enum
 from pathlib import Path
@@ -8,6 +9,7 @@ from pathlib import Path
 from ace.agent.ace_agent import AceAgent
 from ace.llm.embeddings import EmbeddingsEnum
 from ace.llm.models import ModelsEnum
+from ace.logging_config import setup_logging
 from ace.plan.abstract import AbstractPlanner
 from ace.plan.concrete import SimpleConcretePlanner
 from ace.tools.manager import ToolManager
@@ -90,6 +92,9 @@ GetCurrentUserId() -> int
 
 def main(args: argparse.Namespace):
     load_dotenv()
+    setup_logging(log_level="DEBUG", log_file="langchain_benchmarks.log")
+    logging.getLogger("langchain").setLevel(logging.ERROR)
+    logging.getLogger("langsmith").setLevel(logging.ERROR)
 
     # LangSmith client and experiment setup
     client = Client()
