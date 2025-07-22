@@ -38,8 +38,53 @@ BENCHMARK_LONG_NAMES = {
 }
 
 EXTRA_CONTEXT = {
-    Benchmark.TYPEWRITER_1: "You are a typewriter tool that can type letters one at a time. You have a single tool that types a letter and returns string status.",
-    Benchmark.TYPEWRITER_26: "You are a typewriter tool that can type letters one at a time. You have 26 tools, each for a letter of the alphabet, and they return string status when a letter is typed.",
+    Benchmark.TYPEWRITER_1: "You are a typewriter tool that can type letters one at a time. You have a single tool that types a letter and returns string status. Please generate a tool.",
+    Benchmark.TYPEWRITER_26: "You are a typewriter tool that can type letters one at a time. You have 26 tools, each for a letter of the alphabet, and they return string status when a letter is typed. Generate only the tools you need to type the given string.",
+    Benchmark.RELATIONAL_DATA: """\
+You can access several tables in a relational database: User Data, Location Data, Food Data.
+
+## Database Schema
+1. Users
+- id (integer): Primary key; unique user identifier
+- name (string): User's name
+- email (string): User's email address
+- location (integer): Foreign key -> Locations.id
+- favorite_color (string): User's preferred color
+- favorite_foods (array<int>): List of food IDs -> Foods.id
+
+Relationships:
+- Users.location -> Locations.id
+- Elements of Users.favorite_foods -> Foods.id
+
+2. Locations
+- id (integer): Primary key; unique location identifier
+- city (string): City name
+- current_time (datetime): Local time at the location (e.g. "2023-11-14 10:30 AM")
+- current_weather (string): Weather description & temperature (e.g. "Partly Cloudy, 68°F")
+
+3. Foods
+- id (integer): Primary key; unique food identifier
+- name (string): Food item name
+- calories (integer): Caloric content per serving
+- allergic_ingredients (array<string>): List of allergenic components
+
+## Actions
+You can use tools to perform basic database read operations.
+Use primary keys to query information about specific records.
+Do not use non-primary keys for lookups (e.g. city name).
+You might first need to find the primary key of a record identified by a non-primary key.
+Each action can only access a single field of a record at a time.
+When looking record ID with string, you might get back multiple IDs. Not all will match. You should either use the first one or check each ID against the original query with a follow-up action.
+Make sure the final output actually answers the original user question!!!
+Only generate / use the tools needed.
+
+Example actions:
+Find<RecordType>sBy<FieldName>(<field_value>: <field_type>) -> tuple[int]
+  Example: FindUsersByName(name: str) -> tuple[int]
+Get<RecordType><FieldName>(<record_id>: int) -> <field_type>
+  Example: GetUserName(user_id: int) -> str
+GetCurrentUserId() -> int
+""",
 }
 
 
