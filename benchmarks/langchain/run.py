@@ -116,8 +116,8 @@ def main(args: argparse.Namespace):
     conc_model = ModelsEnum(args.conc_model)
     embedding_model = EmbeddingsEnum(args.embedding_model)
 
-    abs_llm = ChatOpenAI(model=abs_model.value, temperature=1.0)
-    conc_llm = ChatOpenAI(model=conc_model.value, temperature=1.0)
+    abs_llm = ChatOpenAI(model=abs_model.value, temperature=args.abs_temperature)
+    conc_llm = ChatOpenAI(model=conc_model.value, temperature=args.conc_temperature)
     embedding = OpenAIEmbeddings(model=embedding_model.value)
 
     # Bridge between LangChain and ACE
@@ -134,7 +134,7 @@ def main(args: argparse.Namespace):
         tool_manager=tools,
         base_llm=conc_llm,
         embedding_model=embedding,
-        filter_threshold=0.9,
+        filter_threshold=args.embedding_threshold,
         context=extra_context,
     )
     agent = AceAgent(
@@ -205,6 +205,24 @@ if __name__ == "__main__":
         default="text-embedding-3-small",
         choices=[m.value for m in EmbeddingsEnum],
         help="Embedding model to use for the benchmark.",
+    )
+    parser.add_argument(
+        "--abs_temperature",
+        type=float,
+        default=1.0,
+        help="Temperature for the abstract LLM.",
+    )
+    parser.add_argument(
+        "--conc_temperature",
+        type=float,
+        default=1.0,
+        help="Temperature for the concrete LLM.",
+    )
+    parser.add_argument(
+        "--embedding_threshold",
+        type=float,
+        default=0.0,
+        help="Threshold for filtering embeddings in the concrete planner.",
     )
     parser.add_argument("--extra_context", action="store_true", help="Give extra task context to the agent.")
     parser.add_argument("--output_dir", type=Path, default=None, help="Directory to save the benchmark results.")
