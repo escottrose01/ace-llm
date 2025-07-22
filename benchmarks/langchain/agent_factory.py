@@ -50,6 +50,7 @@ class ACEAgentLangChain:
             abstract_plan = self.agent.abstract_planner.generate_abstract_plan(query)
             end_time = time.perf_counter()
             trace["Abstract Plan"] = abstract_plan.script
+            trace["Compiled Plan"] = abstract_plan.compile_for_protocol()
             trace["Abstract Tools"] = [t.as_dict() for t in abstract_plan.abs_tools]
             trace["Plan Time"] = end_time - start_time
         except Exception:
@@ -93,11 +94,18 @@ class ACEAgentLangChain:
 
             tool_mapping = concrete_plan  # Will become attribute of concrete_plan in future versions
             trace["Raw Feasible Matches"] = None  # TODO: Better concrete planner return type
-            trace["Tool Mapping"] = {tool_name: tool_call.name for tool_name, tool_call in tool_mapping.items()}
-
-        except Exception:
+            trace["Tool Mapping"] = {
+                tool_name: {
+                    "name": tool_call.name,
+                    "input_mapping": tool_call.input_mapping_source,
+                    "output_mapping": tool_call.output_mapping_source,
+                }
+                for tool_name, tool_call in tool_mapping.items()
+            }
+        except Exception as e:
             # TODO: implement more nuanced custom error types
             trace["Status"] = Status.CONCRETE_PLANNING_ERROR.name
+            trace["Matching Error"] = str(e)
             return {
                 "question": q,
                 "output": "",
