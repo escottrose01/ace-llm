@@ -34,7 +34,7 @@ BENCHMARK_LONG_NAMES = {
     Benchmark.TYPEWRITER_1: "Tool Usage - Typewriter (1 tool)",
     Benchmark.TYPEWRITER_26: "Tool Usage - Typewriter (26 tools)",
     Benchmark.MULTIVERSE_MATH: "Multiverse Math",
-    Benchmark.RELATIONAL_DATA: "Relational Data",
+    Benchmark.RELATIONAL_DATA: "Tool Usage - Relational Data",
 }
 
 EXTRA_CONTEXT = {
