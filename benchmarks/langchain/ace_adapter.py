@@ -94,7 +94,10 @@ class LangChainAceAdapter:
 
         @self.app.route("/state", methods=["GET"])
         def state():
-            return jsonify({"state": self.env.read_state()})  # type: ignore
+            if self.env.read_state is None:
+                return jsonify({"state": None})  # type: ignore
+            else:
+                return jsonify({"state": self.env.read_state()})  # type: ignore
 
         @self.app.route("/reset", methods=["POST"])
         def reset():
