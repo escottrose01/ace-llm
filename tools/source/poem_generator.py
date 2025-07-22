@@ -4,4 +4,4 @@ def main() -> str:
 
     :returns: str: The generated poem.
     """
-    return "Roses are red,\nViolets are blue,\nSugar is sweet,\nAnd so are you."
+    return {"result": "Roses are red,\nViolets are blue,\nSugar is sweet,\nAnd so are you."}

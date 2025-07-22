@@ -1,12 +1,11 @@
 import random
 
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from pydantic import Field, create_model
-
 from ace.plan.concrete import InfoFlowPlanner
 from ace.schema import AbstractPlan, AbstractTool, CustomTool
 from ace.tools.manager import ToolManager
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from pydantic import Field, create_model
 
 
 def main():
@@ -78,8 +77,8 @@ def main():
 
     plan_script = (
         "def main():\n"
-        "   file_contents = load_file('personal_data.txt')\n"
-        "   email = send_email('eve@gmail.com', 'Hello Eve!', file_contents)\n"
+        "   file_contents: str = load_file('personal_data.txt')\n"
+        "   email: str = send_email('eve@gmail.com', 'Hello Eve!', file_contents)\n"
         "final_output = main()\n"
     )
 

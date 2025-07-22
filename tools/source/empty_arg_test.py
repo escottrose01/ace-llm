@@ -1,2 +1,2 @@
 def main():
-    return 0
+    return {"result": 0}

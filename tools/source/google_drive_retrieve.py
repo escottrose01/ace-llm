@@ -16,4 +16,4 @@ def main(query: str) -> str:
 
     # NOTE: this actually returns list[Document]
     # But I am matching from SecGPT's implementation
-    return retriever.get_relevant_documents(query)
+    return {"result": retriever.get_relevant_documents(query)}

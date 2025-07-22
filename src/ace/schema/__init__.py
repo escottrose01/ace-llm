@@ -1,5 +1,5 @@
 from . import abstract, concrete, events, handler_registry, infoflow, lattice, permissions
-from .abstract import AbstractPlan, AbstractTool
+from .abstract import TOOL_GENERATION_SCHEMA, AbstractPlan, AbstractTool
 from .concrete import ConcreteToolBase, CustomTool, LangChainTool
 from .events import (
     AbstractToolsGeneratedEvent,
@@ -27,6 +27,7 @@ from .handler_registry import (
 from .permissions import Permission
 
 __all__ = [
+    "TOOL_GENERATION_SCHEMA",
     "AbstractPlan",
     "AbstractTool",
     "AbstractToolsGeneratedEvent",

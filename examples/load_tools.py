@@ -1,8 +1,7 @@
-from pydantic import create_model
-
 from ace.execute import PlanOrchestrator
 from ace.schema import AbstractPlan, AbstractTool
 from ace.tools.manager import ToolManager
+from pydantic import create_model
 
 
 def main():
@@ -40,14 +39,16 @@ def main():
     # I.e., abstract args -> concrete args
     #       abstract outputs -> concrete outputs
     plan_script = (
-        "src : str = 'Main Street'\n"
-        "dst : str = 'Cooper Street'\n"
-        "v1 = RideShare__1(start_point=src, end_point=dst)\n"
-        "v2 = RideShare__2(start_point=src, end_point=dst)\n"
-        "if v1 < v2:\n"
-        "    display(f'v1 is cheaper at {v1}')\n"
-        "else:\n"
-        "    display(f'v2 is cheaper at {v2}')\n"
+        "def main():\n"
+        "    src: str = 'Main Street'\n"
+        "    dst: str = 'Cooper Street'\n"
+        "    v1: float = RideShare__1(start_point=src, end_point=dst).result\n"
+        "    v2: float = RideShare__2(start_point=src, end_point=dst).result\n"
+        "    if v1 < v2:\n"
+        "        display(f'v1 is cheaper at {v1}')\n"
+        "    else:\n"
+        "        display(f'v2 is cheaper at {v2}')\n"
+        "final_output = main()\n"
     )
 
     plan = AbstractPlan(script=plan_script, abs_tools=abs_tools)

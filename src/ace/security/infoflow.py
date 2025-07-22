@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from ..schema.infoflow import ExplicitFlow, Flow, MemoryModel, RepetitionFlow, SequenceFlow
 from ..schema.lattice import Lattice
 
-ExprType = ast.Name | ast.Constant | ast.BinOp | ast.Compare | ast.Subscript
+ExprType = ast.Name | ast.Constant | ast.BinOp | ast.Compare | ast.Subscript | ast.Attribute
 
 OK_FUNCTIONS = {"len", "abs", "min", "max"}
 
@@ -30,6 +30,13 @@ def extract_vars_from_expr(node: ast.expr) -> set[str]:
         base = {node.value.id} if isinstance(node.value, ast.Name) else set()
         index = extract_vars_from_expr(node.slice)
         return base | index
+    elif isinstance(node, ast.Attribute):
+        # Attribute read: treat as a read from the base variable
+        if isinstance(node.value, ast.Name):
+            return {node.value.id}
+        else:
+            # For nested attributes, recursively extract base
+            return extract_vars_from_expr(node.value)
     else:
         raise TypeError(f"Unsupported expression type: {type(node)}")
 
@@ -68,6 +75,9 @@ class FlowParser(ast.NodeVisitor):
         return self.flow
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        # Disallow attribute assignment: x.y = ...
+        if isinstance(node.target, ast.Attribute):
+            raise TypeError("Attribute assignment (x.y = ...) is not allowed")
         if not isinstance(node.target, ast.Name):
             raise TypeError("Annotation target must be a variable name")
         outputs = {node.target.id}
@@ -90,6 +100,9 @@ class FlowParser(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign) -> None:
         if len(node.targets) != 1:
             raise ValueError("Assignment must have exactly one target")
+        # Disallow attribute assignment: x.y = ...
+        if isinstance(node.targets[0], ast.Attribute):
+            raise TypeError("Attribute assignment (x.y = ...) is not allowed")
         if not isinstance(node.targets[0], ast.Name):
             raise TypeError("Assignment target must be a variable name")
         outputs = {node.targets[0].id}
@@ -110,6 +123,9 @@ class FlowParser(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        # Disallow attribute augmented assignment: x.y += ...
+        if isinstance(node.target, ast.Attribute):
+            raise TypeError("Attribute augmented assignment (x.y += ...) is not allowed")
         if not isinstance(node.target, ast.Name):
             raise TypeError("Augmented assignment target must be a variable name")
         outputs = {node.target.id}

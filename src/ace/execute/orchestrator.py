@@ -233,13 +233,36 @@ class PlanOrchestrator:
                     if message.startswith("RESULT:"):
                         logger.debug("Processing tool RESULT message")
                         result_b64 = message[len("RESULT:") :]
+
+                        # Decode result to dict
+                        result_json = base64.b64decode(result_b64).decode()
+                        result_dict = json.loads(result_json)
+                        tool = None
                         if self.tool_execution_sandbox:
+                            tool = self.tool_execution_sandbox.tool
                             self.tool_execution_sandbox.kill()
 
-                        # Encode result and send to worker
+                        # Validate output against tool schema if available
+                        if tool and tool.output_schema:
+                            try:
+                                validated = tool.output_schema.model_validate(result_dict)
+                                result_dict = validated.model_dump()
+                            except Exception as e:
+                                logger.error(f"Tool output schema validation failed: {e}")
+                                error_b64 = base64.b64encode(str(e).encode()).decode()
+                                if self.plan_execution_sandbox:
+                                    self.plan_execution_sandbox.send(f"ERROR:{error_b64}")
+                                self.exception_queue.put(ValueError(f"Tool output schema validation failed: {e}"))
+                                if self.tool_execution_sandbox:
+                                    self.tool_execution_sandbox.kill()
+                                continue
+
+                        # Encode validated dict and send to worker
                         if self.plan_execution_sandbox:
-                            self.plan_execution_sandbox.send(f"RESPONSE:{result_b64}")
-                            logger.debug("Sent tool result back to plan")
+                            validated_json = json.dumps(result_dict)
+                            validated_b64 = base64.b64encode(validated_json.encode()).decode()
+                            self.plan_execution_sandbox.send(f"RESPONSE:{validated_b64}")
+                            logger.debug("Sent validated tool result back to plan")
                     elif message.startswith("ERROR:"):
                         logger.error(f"Tool execution error from {id}")
                         error = message[len("ERROR:") :]
