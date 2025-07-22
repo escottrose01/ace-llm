@@ -18,7 +18,7 @@ class BaseValidator(ABC):
     def validate_abstract_plan(self, plan: AbstractPlan) -> None:
         pass
 
-    def valdidate_tool_mapping(self, abstract_tool: AbstractTool, concrete_tool: ConcreteToolBase) -> None:
+    def validate_tool_mapping(self, abstract_tool: AbstractTool, concrete_tool: ConcreteToolBase) -> None:
         pass
 
     def validate_concrete_plan(
@@ -55,39 +55,16 @@ class Analyzer:
 
     def analyze_post_abstract_tools(self, tools: list[AbstractTool]) -> None:
         validators = self.registry.get_validators()
-        self._run_post_abstract_tools_validators(validators, tools)
-
-    def analyze_post_abstract_plan(self, plan: AbstractPlan) -> None:
-        validators = self.registry.get_validators()
-        self._run_post_abstract_plan_validators(validators, plan)
-
-    def analyze_post_tool_mapping(
-        self,
-        abstract_tool: AbstractTool,
-        concrete_tool: ConcreteToolBase,
-    ) -> None:
-        validators = self.registry.get_validators()
-        self._run_post_abstract_tools_validators(validators, [abstract_tool])
-
-    def analyze_post_concrete_plan(
-        self,
-        abstract_plan: AbstractPlan,
-        concrete_plan: dict[str, ConcreteToolBase],
-    ) -> None:
-        validators = self.registry.get_validators()
-        self._run_post_concrete_plan_validators(validators, abstract_plan, concrete_plan)
-
-    def _run_post_abstract_tools_validators(self, validators: list[BaseValidator], tools: list[AbstractTool]) -> None:
         errors = []
         for validator in validators:
             try:
                 validator.validate_abstract_tools(tools)
             except AnalysisError as e:
                 errors.append(e)
-
         self._handle_errors(errors)
 
-    def _run_post_abstract_plan_validators(self, validators: list[BaseValidator], plan: AbstractPlan) -> None:
+    def analyze_post_abstract_plan(self, plan: AbstractPlan) -> None:
+        validators = self.registry.get_validators()
         errors = []
         for validator in validators:
             try:
@@ -97,27 +74,27 @@ class Analyzer:
 
         self._handle_errors(errors)
 
-    def _run_post_tool_mapping_validators(
+    def analyze_post_tool_mapping(
         self,
-        validators: list[BaseValidator],
         abstract_tool: AbstractTool,
         concrete_tool: ConcreteToolBase,
     ) -> None:
+        validators = self.registry.get_validators()
         errors = []
         for validator in validators:
             try:
-                validator.valdidate_tool_mapping(abstract_tool, concrete_tool)
+                validator.validate_tool_mapping(abstract_tool, concrete_tool)
             except AnalysisError as e:
                 errors.append(e)
 
         self._handle_errors(errors)
 
-    def _run_post_concrete_plan_validators(
+    def analyze_post_concrete_plan(
         self,
-        validators: list[BaseValidator],
         abstract_plan: AbstractPlan,
         concrete_plan: dict[str, ConcreteToolBase],
     ) -> None:
+        validators = self.registry.get_validators()
         errors = []
         for validator in validators:
             try:
