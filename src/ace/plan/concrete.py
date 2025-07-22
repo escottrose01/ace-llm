@@ -15,7 +15,7 @@ from pydantic import model_validator
 from ..analysis import Analyzer
 from ..logging_config import get_logger
 from ..prompts.concrete_templates import generate_tool_compatibility_json_template
-from ..schema.abstract import AbstractPlan, AbstractTool, AnnotationTransformer
+from ..schema.abstract import AbstractPlan, AbstractTool
 from ..schema.concrete import ConcreteToolBase
 from ..schema.infoflow import MemoryModel
 from ..schema.lattice import SubsetLattice
@@ -23,6 +23,20 @@ from ..security.infoflow import FlowAnalyzer
 from ..tools.manager import ToolManager
 
 logger = get_logger(__name__)
+
+
+class AnnotationTransformer(ast.NodeTransformer):
+    """Converts attribute access (x.y) to string indexing (x["y"]) in the AST."""
+
+    # TODO: this is a hack for now. Proper solution should involve type system.
+
+    def visit_Attribute(self, node):
+        self.generic_visit(node)
+        return ast.Subscript(
+            value=node.value,
+            slice=ast.Constant(value=node.attr),
+            ctx=node.ctx,
+        )
 
 
 class SchemaAdaptedTool(ConcreteToolBase):
@@ -66,6 +80,7 @@ class SchemaAdaptedTool(ConcreteToolBase):
         field_names = list(self.args_schema.model_fields.keys())
 
         # Parse and transform the input and output mapping sources
+        # TODO: Use of AnnotationTransformer here is a workaround. Ideally, we should use the type system directly.
         input_mapping = ast.parse(self.input_mapping_source).body[0]
         input_mapping = AnnotationTransformer().visit(input_mapping)
         input_mapping = ast.fix_missing_locations(input_mapping)
