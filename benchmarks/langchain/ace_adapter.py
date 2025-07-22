@@ -195,7 +195,7 @@ class LangChainProxyTool(ConcreteToolBase):
             f"            resp_data = resp.read().decode('utf-8')\n"
             f"            data = json.loads(resp_data)\n"
             f"            if resp.status == 200 and data.get('success'):\n"
-            f"                return data.get('result')\n"
+            f"                return data\n"
             f"            else:\n"
             f"                raise RuntimeError('LangChain function failed: ' + str(data.get('error', 'HTTP ' + str(resp.status))))\n"
             f"    except Exception as e:\n"
