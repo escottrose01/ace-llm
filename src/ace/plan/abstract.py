@@ -60,6 +60,14 @@ def create_pydantic_schema(fields: list[dict[str, str]]) -> type[BaseModel]:
                 field_type = str
             case "bool":
                 field_type = bool
+            case "tuple[int]":
+                field_type = tuple[int]
+            case "tuple[float]":
+                field_type = tuple[float]
+            case "tuple[str]":
+                field_type = tuple[str]
+            case "tuple[bool]":
+                field_type = tuple[bool]
             case _:
                 raise ValueError(f"Unsupported type: {type}")
         schema_fields[name] = (field_type, Field(..., description=desc))
