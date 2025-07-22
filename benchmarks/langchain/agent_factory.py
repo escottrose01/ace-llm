@@ -18,12 +18,11 @@ class Status(Enum):
 
 
 class ACEAgentLangChain:
-    def __init__(self, agent: AceAgent, task, service_url, extra_context=None):
+    def __init__(self, agent: AceAgent, task, service_url):
         print("Initializing ACEAgentLangChain...")
         self.agent = agent
         self.task = task
         self.service_url = service_url
-        self.extra_context = extra_context or ""
 
     def invoke(self, inputs):
         # Reset environment before each run
@@ -38,9 +37,8 @@ class ACEAgentLangChain:
 
         # Compose query
         q = inputs["question"]
-        extra_context = f"{self.extra_context}\n\n" or ""
         instructions = f"{self.task.instructions}\n\n" if self.task.instructions else ""
-        query = extra_context + instructions + f"The given string is: '{q}'."
+        query = instructions + f"The given string is: '{q}'."
 
         # ACE pipeline
         trace = dict()

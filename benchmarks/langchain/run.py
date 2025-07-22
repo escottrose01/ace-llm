@@ -128,20 +128,21 @@ def main(args: argparse.Namespace):
 
     tools = ToolManager(adapter.create_ace_tools())
 
-    abstract_planner = AbstractPlanner(base_llm=abs_llm)
+    extra_context = EXTRA_CONTEXT.get(benchmark, "") if args.extra_context else ""
+    abstract_planner = AbstractPlanner(base_llm=abs_llm, context=extra_context)
     concrete_planner = SimpleConcretePlanner(
         tool_manager=tools,
         base_llm=conc_llm,
         embedding_model=embedding,
         filter_threshold=0.9,
+        context=extra_context,
     )
     agent = AceAgent(
         abstract_planner=abstract_planner,
         concrete_planner=concrete_planner,
     )
 
-    extra_context = EXTRA_CONTEXT.get(benchmark, "") if args.extra_context else ""
-    agent_factory = AgentFactory(agent, task, service_url, extra_context)
+    agent_factory = AgentFactory(agent, task, service_url)
     eval_config = task.get_eval_config()
 
     results = client.run_on_dataset(
