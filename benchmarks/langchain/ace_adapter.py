@@ -6,6 +6,8 @@ from ace.schema.concrete import ConcreteToolBase
 from flask import Flask, jsonify, request
 from langchain_benchmarks.schema import ToolUsageTask
 
+from .types import TYPE_PATCH
+
 
 class LangChainAceAdapter:
     def __init__(self, task: ToolUsageTask):
@@ -133,6 +135,10 @@ class LangChainAceAdapter:
         """
         wrappers = []
         for tool in self.tools:
+            # Patch the output schema if necessary,
+            # Since the builtins are not appropriate
+            output_schema = TYPE_PATCH.get(tool.output_schema.model_json_schema()["title"], tool.output_schema)
+
             wrappers.append(
                 LangChainProxyTool(
                     name=tool.name,
@@ -140,7 +146,7 @@ class LangChainAceAdapter:
                     function_name=tool.name,
                     service_url=f"http://172.17.0.1:{self.port}",
                     args_schema=tool.args_schema,
-                    output_schema=tool.output_schema,
+                    output_schema=output_schema,
                 )
             )
             pass
