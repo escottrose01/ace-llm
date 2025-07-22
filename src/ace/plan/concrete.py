@@ -164,6 +164,7 @@ class SimpleConcretePlanner(ConcretePlannerBase):
         base_llm: BaseChatModel,
         embedding_model: OpenAIEmbeddings,
         context: str = "",
+        analyzer: Optional[Analyzer] = None,
         filter_threshold: float = 0.8,
         max_retries: int = 3,
     ):
@@ -197,6 +198,10 @@ class SimpleConcretePlanner(ConcretePlannerBase):
             | RunnablePassthrough.assign(result=parse_mapping_runnable)
         ).with_retry(stop_after_attempt=max_retries)
 
+        # Initialize analyzer
+        self.analyzer = analyzer or Analyzer()
+
+        # Initialize embeddings
         self._generate_tool_embeddings()
         logger.debug("SimpleConcretePlanner initialization completed")
 
