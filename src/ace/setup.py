@@ -1,4 +1,5 @@
 from ace.agent import AceAgent
+from ace.analysis import configure_analyzer
 from ace.llm.base import create_llm
 from ace.llm.embeddings import EmbeddingsEnum, create_embedding
 from ace.llm.models import ModelsEnum
@@ -27,10 +28,12 @@ def setup_app(config: AppConfig, event_registry: HandlerRegistry | AgentEventHan
     base_llm = create_llm(config.llm_model, temperature=config.temperature)
     embedding_model = create_embedding(config.embedding_model)
     tool_manager = ToolManager.from_manifest(config.tool_manifest)
-    abstract_planner = AbstractPlanner(base_llm=base_llm)
+    analyzer = configure_analyzer()
+    abstract_planner = AbstractPlanner(base_llm=base_llm, analyzer=analyzer)
     concrete_planner = InfoFlowPlanner(
         tool_manager=tool_manager,
         base_llm=base_llm,
         embedding_model=embedding_model,
+        analyzer=analyzer,
     )
     return AceAgent(abstract_planner=abstract_planner, concrete_planner=concrete_planner, event_registry=event_registry)

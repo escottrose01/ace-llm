@@ -1,10 +1,12 @@
 import re
+from typing import Optional
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
 from pydantic import BaseModel, Field, create_model
 
+from ..analysis import Analyzer
 from ..logging_config import get_logger
 from ..prompts.abstract_templates import generate_abstract_plan_template, generate_abstract_tool_template
 from ..schema import TOOL_GENERATION_SCHEMA, AbstractPlan, AbstractTool
@@ -70,11 +72,13 @@ class AbstractPlanner:
     toolgen_chain: Runnable
     plangen_chain: Runnable
     max_retries: int = 3
+    analyzer: Analyzer
 
     def __init__(
         self,
         base_llm: BaseChatModel,
         context: str = "",
+        analyzer: Optional[Analyzer] = None,
         max_retries: int = 3,
     ):
         logger.info("Initializing AbstractPlanner")
@@ -87,22 +91,15 @@ class AbstractPlanner:
         plangen_prompt = generate_abstract_plan_template()
 
         # Runnable for parsing and validating tools
-        parse_tools_runnable = RunnableLambda(self.parse_tools_fn)
+        parse_tools_runnable = RunnableLambda(self._parse_tools_fn)
 
         # Generation chains
         self.toolgen_chain = toolgen_prompt | (
             self.base_llm.with_structured_output(TOOL_GENERATION_SCHEMA) | parse_tools_runnable
         ).with_retry(stop_after_attempt=self.max_retries)
 
-        # Parse plan and combine with original tools
-        def parse_plan_with_tools(inputs):
-            script_output = inputs["script"]
-            tools = inputs["tools"]
-            parsed_script = parse_text_to_python(script_output)
-            return AbstractPlan(script=parsed_script, abs_tools=tools)
-
         format_tools_runnable = RunnableLambda(lambda inputs: "\n".join([tool.as_json() for tool in inputs["tools"]]))  # type: ignore
-        parse_plan_runnable = RunnableLambda(parse_plan_with_tools)
+        parse_plan_runnable = RunnableLambda(self._parse_plan_with_tools)
 
         self.plangen_chain = (
             RunnablePassthrough.assign(
@@ -111,8 +108,20 @@ class AbstractPlanner:
             | parse_plan_runnable
         ).with_retry(stop_after_attempt=self.max_retries)
 
-    @staticmethod
-    def parse_tools_fn(output: dict) -> list[AbstractTool]:
+        # Initialize analyzer
+        self.analyzer = analyzer or Analyzer()
+
+    def _parse_plan_with_tools(self, inputs: dict) -> AbstractPlan:
+        script_output = inputs["script"]
+        tools = inputs["tools"]
+        parsed_script = parse_text_to_python(script_output)
+        plan = AbstractPlan(script=parsed_script, abs_tools=tools)
+
+        self.analyzer.analyze_post_abstract_plan(plan)
+
+        return plan
+
+    def _parse_tools_fn(self, output: dict) -> list[AbstractTool]:
         if not output or "apps" not in output:
             raise ValueError("Malformed output; missing 'apps' key.")
         abstract_tool_list = []
@@ -131,6 +140,9 @@ class AbstractPlanner:
                 logger.log_structured("debug", f"ABSTRACT_TOOL_{i + 1}_FULL", str(tool))
             except Exception as e:
                 raise ValueError(f"Failed to instantiate AbstractTool for {tool.get('name', 'unnamed')}: {e}")
+
+        self.analyzer.analyze_post_abstract_tools(abstract_tool_list)
+
         return abstract_tool_list
 
     def generate_abstract_tools(self, query) -> list[AbstractTool]:
