@@ -35,5 +35,6 @@ def setup_app(config: AppConfig, event_registry: HandlerRegistry | AgentEventHan
         base_llm=base_llm,
         embedding_model=embedding_model,
         analyzer=analyzer,
+        filter_threshold=0.1,
     )
     return AceAgent(abstract_planner=abstract_planner, concrete_planner=concrete_planner, event_registry=event_registry)
