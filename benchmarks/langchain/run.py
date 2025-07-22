@@ -112,9 +112,9 @@ def main(args: argparse.Namespace):
     clone_public_dataset(task.dataset_id, dataset_name=dataset_name)
 
     # ACE System setup
-    abs_model = ModelsEnum.GPT_4_1_NANO_2025_04_14
-    conc_model = ModelsEnum.GPT_4_1_NANO_2025_04_14
-    embedding_model = EmbeddingsEnum.OPENAI_3_SMALL
+    abs_model = ModelsEnum(args.abs_model)
+    conc_model = ModelsEnum(args.conc_model)
+    embedding_model = EmbeddingsEnum(args.embedding_model)
 
     abs_llm = ChatOpenAI(model=abs_model.value, temperature=0.8)
     conc_llm = ChatOpenAI(model=conc_model.value, temperature=0.8)
@@ -184,6 +184,27 @@ if __name__ == "__main__":
         default="typewriter1",
         choices=Benchmark._value2member_map_.keys(),
         help="Name of the benchmark to run.",
+    )
+    parser.add_argument(
+        "--abs_model",
+        type=str,
+        default="gpt-4-1-nano-2025-04-14",
+        choices=[m.value for m in ModelsEnum],
+        help="Abstract model to use for the benchmark.",
+    )
+    parser.add_argument(
+        "--conc_model",
+        type=str,
+        default="gpt-4-1-nano-2025-04-14",
+        choices=[m.value for m in ModelsEnum],
+        help="Concrete model to use for the benchmark.",
+    )
+    parser.add_argument(
+        "--embedding_model",
+        type=str,
+        default="text-embedding-3-small",
+        choices=[m.value for m in EmbeddingsEnum],
+        help="Embedding model to use for the benchmark.",
     )
     parser.add_argument("--extra_context", action="store_true", help="Give extra task context to the agent.")
     parser.add_argument("--output_dir", type=Path, default=None, help="Directory to save the benchmark results.")
