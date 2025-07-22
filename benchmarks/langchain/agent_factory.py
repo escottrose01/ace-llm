@@ -138,6 +138,8 @@ class ACEAgentLangChain:
                     "trace": trace,
                 }
 
+        trace["Status"] = Status.OK.name
+        trace["Output"] = output
         return {
             "question": q,
             "output": output,
