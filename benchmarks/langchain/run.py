@@ -40,8 +40,8 @@ BENCHMARK_LONG_NAMES = {
 }
 
 EXTRA_CONTEXT = {
-    Benchmark.TYPEWRITER_1: "You are a typewriter tool that can type letters one at a time. You have a single tool that types a letter and returns string status. Please generate a tool.",
-    Benchmark.TYPEWRITER_26: "You are a typewriter tool that can type letters one at a time. You have 26 tools, each for a letter of the alphabet, and they return string status when a letter is typed. Generate only the tools you need to type the given string.",
+    Benchmark.TYPEWRITER_1: "You are a case-insensitive typewriter tool that can type letters one at a time. You have a single tool that types a letter and returns string status. You must generate this tool to use it.",
+    Benchmark.TYPEWRITER_26: "You are a case-insensitive typewriter tool that can type letters one at a time. You have 26 tools, each for a letter of the alphabet, and they return string status when a letter is typed. Generate only the tools you need to type the given string.",
     Benchmark.RELATIONAL_DATA: """\
 You can access several tables in a relational database: User Data, Location Data, Food Data.
 
