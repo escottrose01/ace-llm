@@ -2,7 +2,43 @@ import ast
 import json
 
 import astor
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
+
+
+class ToolParameter(BaseModel):
+    """Schema for tool input/output parameters."""
+
+    name: str = Field(..., description="The name of the parameter.")
+    description: str = Field(..., description="A natural language description of the parameter.")
+    type: str = Field(
+        ...,
+        description="The type of the parameter (must be one of the allowed primitive types).",
+        pattern="^(str|int|float|bool|tuple\\[str\\]|tuple\\[int\\]|tuple\\[float\\]|tuple\\[bool\\])$",
+    )
+
+
+class ToolSchema(BaseModel):
+    """Schema for individual tool specification."""
+
+    name: str = Field(..., description="The unique, brief name of the tool or function.")
+    description: str = Field(
+        ...,
+        description="A natural language description explaining the tool's purpose and what task it helps accomplish.",
+    )
+    inputs: list[ToolParameter] = Field(
+        ..., description="A list of input parameters each with a name, description, and type."
+    )
+    outputs: list[ToolParameter] = Field(
+        ..., description="A list of output fields each with a name, description, and type."
+    )
+
+
+class ToolGenerationResponse(BaseModel):
+    """Response model for tool generation."""
+
+    apps: list[ToolSchema] = Field(
+        ..., description="A list of function tool schemas designed to help accomplish a task."
+    )
 
 
 class AbstractTool(BaseModel):
@@ -119,92 +155,3 @@ class AbstractPlan(BaseModel):
         ast.fix_missing_locations(prog)
 
         return astor.to_source(prog)
-
-
-TOOL_GENERATION_SCHEMA = {
-    "name": "function_tool_schema",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "properties": {
-            "apps": {
-                "type": "array",
-                "description": "A list of function tool schemas designed to help accomplish a task.",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "description": "The unique, brief name of the tool or function."},
-                        "description": {
-                            "type": "string",
-                            "description": "A natural language description explaining the tool's purpose and what task it helps accomplish.",
-                        },
-                        "inputs": {
-                            "type": "array",
-                            "description": "A list of input parameters each with a name, description, and type.",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "name": {"type": "string", "description": "The name of the input parameter."},
-                                    "description": {
-                                        "type": "string",
-                                        "description": "A natural language description of the input parameter.",
-                                    },
-                                    "type": {
-                                        "type": "string",
-                                        "description": "The type of the input parameter (must be one of the allowed primitive types).",
-                                        "enum": [
-                                            "str",
-                                            "int",
-                                            "float",
-                                            "bool",
-                                            "tuple[str]",
-                                            "tuple[int]",
-                                            "tuple[float]",
-                                            "tuple[bool]",
-                                        ],
-                                    },
-                                },
-                                "required": ["name", "description", "type"],
-                                "additionalProperties": False,
-                            },
-                        },
-                        "outputs": {
-                            "type": "array",
-                            "description": "A list of output fields each with a name, description, and type.",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "name": {"type": "string", "description": "The name of the output field."},
-                                    "description": {
-                                        "type": "string",
-                                        "description": "A natural language description of the output field.",
-                                    },
-                                    "type": {
-                                        "type": "string",
-                                        "description": "The type of the output field (must be one of the allowed primitive types).",
-                                        "enum": [
-                                            "str",
-                                            "int",
-                                            "float",
-                                            "bool",
-                                            "tuple[str]",
-                                            "tuple[int]",
-                                            "tuple[float]",
-                                            "tuple[bool]",
-                                        ],
-                                    },
-                                },
-                                "required": ["name", "description", "type"],
-                                "additionalProperties": False,
-                            },
-                        },
-                    },
-                    "required": ["name", "description", "inputs", "outputs"],
-                    "additionalProperties": False,
-                },
-            }
-        },
-        "required": ["apps"],
-        "additionalProperties": False,
-    },
-}
