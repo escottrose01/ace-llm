@@ -7,6 +7,7 @@ from enum import Enum
 from pathlib import Path
 
 from ace.agent.ace_agent import AceAgent
+from ace.llm.base import create_llm
 from ace.llm.embeddings import EmbeddingsEnum
 from ace.llm.models import ModelsEnum
 from ace.logging_config import setup_logging
@@ -17,7 +18,7 @@ from dotenv import load_dotenv
 from langchain_benchmarks import __version__ as langchain_version
 from langchain_benchmarks import clone_public_dataset, registry
 from langchain_benchmarks.schema import ToolUsageTask
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langsmith.client import Client
 
 from .ace_adapter import LangChainAceAdapter
@@ -116,8 +117,8 @@ def main(args: argparse.Namespace):
     conc_model = ModelsEnum(args.conc_model)
     embedding_model = EmbeddingsEnum(args.embedding_model)
 
-    abs_llm = ChatOpenAI(model=abs_model.value, temperature=args.abs_temperature)
-    conc_llm = ChatOpenAI(model=conc_model.value, temperature=args.conc_temperature)
+    abs_llm = create_llm(abs_model, temperature=args.abs_temperature)
+    conc_llm = create_llm(conc_model, temperature=args.conc_temperature, requests_per_second=1)
     embedding = OpenAIEmbeddings(model=embedding_model.value)
 
     # Bridge between LangChain and ACE
