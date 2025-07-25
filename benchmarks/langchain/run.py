@@ -77,7 +77,7 @@ Do not use non-primary keys for lookups (e.g. city name).
 You might first need to find the primary key of a record identified by a non-primary key.
 Each action can only access a single field of a record at a time.
 When looking record ID with string, you might get back multiple IDs. Not all will match. You should either use the first one or check each ID against the original query with a follow-up action.
-Make sure the final output actually answers the original user question!!!
+Make sure the final output actually answers the original user question! Return what you display to the user.
 Only generate / use the tools needed.
 
 Example actions:
