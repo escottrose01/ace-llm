@@ -24,13 +24,13 @@ class ModelsEnum(StrEnum):
     GPT_3_5_TURBO_0125 = "gpt-3.5-turbo-0125"
     GPT_4_TURBO_2024_04_09 = "gpt-4-turbo-2024-04-09"
 
-    CLAUDE_3_OPUS_20240229 = "claude-3-opus-20240229"
-    CLAUDE_3_SONNET_20240229 = "claude-3-sonnet-20240229"
-    CLAUDE_3_5_SONNET_20240620 = "claude-3-5-sonnet-20240620"
-    CLAUDE_3_5_SONNET_20241022 = "claude-3-5-sonnet-20241022"
-    CLAUDE_3_7_SONNET_20250219 = "claude-3-7-sonnet-20250219"
-    CLAUDE_3_7_SONNET_20250219_THINKING_16000 = "claude-3-7-sonnet-20250219-thinking-16000"
-    CLAUDE_3_HAIKU_20240307 = "claude-3-haiku-20240307"
+    CLAUDE_4_OPUS_2025_05_14 = "claude-4-opus-20250514"
+    CLAUDE_4_SONNET_2025_05_14 = "claude-4-sonnet-20250514"
+    CLAUDE_3_7_SONNET_2025_02_19 = "claude-3-7-sonnet-20250219"
+    CLAUDE_3_5_SONNET_2024_10_22 = "claude-3-5-sonnet-20241022"
+    CLAUDE_3_5_SONNET_2024_06_20 = "claude-3-5-sonnet-20240620"
+    CLAUDE_3_5_HAIKU_2024_10_22 = "claude-3-5-haiku-20241022"
+    CLAUDE_3_HAIKU_2024_03_07 = "claude-3-haiku-20240307"
 
     COMMAND_R_PLUS = "command-r-plus"
     COMMAND_R = "command-r"
@@ -72,13 +72,13 @@ MODEL_PROVIDERS = {
     ModelsEnum.GPT_4_0125_PREVIEW: "openai",
     ModelsEnum.GPT_3_5_TURBO_0125: "openai",
     ModelsEnum.GPT_4_TURBO_2024_04_09: "openai",
-    ModelsEnum.CLAUDE_3_OPUS_20240229: "anthropic",
-    ModelsEnum.CLAUDE_3_SONNET_20240229: "anthropic",
-    ModelsEnum.CLAUDE_3_5_SONNET_20240620: "anthropic",
-    ModelsEnum.CLAUDE_3_5_SONNET_20241022: "anthropic",
-    ModelsEnum.CLAUDE_3_7_SONNET_20250219: "anthropic",
-    ModelsEnum.CLAUDE_3_7_SONNET_20250219_THINKING_16000: "anthropic",
-    ModelsEnum.CLAUDE_3_HAIKU_20240307: "anthropic",
+    ModelsEnum.CLAUDE_4_OPUS_2025_05_14: "anthropic",
+    ModelsEnum.CLAUDE_4_SONNET_2025_05_14: "anthropic",
+    ModelsEnum.CLAUDE_3_7_SONNET_2025_02_19: "anthropic",
+    ModelsEnum.CLAUDE_3_5_SONNET_2024_10_22: "anthropic",
+    ModelsEnum.CLAUDE_3_5_SONNET_2024_06_20: "anthropic",
+    ModelsEnum.CLAUDE_3_5_HAIKU_2024_10_22: "anthropic",
+    ModelsEnum.CLAUDE_3_HAIKU_2024_03_07: "anthropic",
     ModelsEnum.COMMAND_R_PLUS: "cohere",
     ModelsEnum.COMMAND_R: "cohere",
     ModelsEnum.MISTRALAI_MIXTRAL_8X7B_INSTRUCT_V0_1: "together",
@@ -115,13 +115,13 @@ MODEL_NAMES = {
     ModelsEnum.GPT_4_0125_PREVIEW: "GPT-4 Turbo Preview 0125",
     ModelsEnum.GPT_3_5_TURBO_0125: "GPT-3.5 Turbo 0125",
     ModelsEnum.GPT_4_TURBO_2024_04_09: "GPT-4 Turbo",
-    ModelsEnum.CLAUDE_3_OPUS_20240229: "Claude 3 Opus",
-    ModelsEnum.CLAUDE_3_SONNET_20240229: "Claude 3 Sonnet",
-    ModelsEnum.CLAUDE_3_5_SONNET_20240620: "Claude 3.5 Sonnet",
-    ModelsEnum.CLAUDE_3_5_SONNET_20241022: "Claude 3.5 Sonnet October",
-    ModelsEnum.CLAUDE_3_7_SONNET_20250219: "Claude 3.7 Sonnet",
-    ModelsEnum.CLAUDE_3_7_SONNET_20250219_THINKING_16000: "Claude 3.7 Sonnet (16k)",
-    ModelsEnum.CLAUDE_3_HAIKU_20240307: "Claude 3 Haiku",
+    ModelsEnum.CLAUDE_4_OPUS_2025_05_14: "Claude 4 Opus (May 2025)",
+    ModelsEnum.CLAUDE_4_SONNET_2025_05_14: "Claude 4 Sonnet (May 2025)",
+    ModelsEnum.CLAUDE_3_7_SONNET_2025_02_19: "Claude 3.7 Sonnet (Feb 2025)",
+    ModelsEnum.CLAUDE_3_5_SONNET_2024_10_22: "Claude 3.5 Sonnet (Oct 2024)",
+    ModelsEnum.CLAUDE_3_5_SONNET_2024_06_20: "Claude 3.5 Sonnet (Jun 2024)",
+    ModelsEnum.CLAUDE_3_5_HAIKU_2024_10_22: "Claude 3.5 Haiku (Oct 2024)",
+    ModelsEnum.CLAUDE_3_HAIKU_2024_03_07: "Claude 3 Haiku (Mar 2024)",
     ModelsEnum.COMMAND_R_PLUS: "Command R Plus",
     ModelsEnum.COMMAND_R: "Command R",
     ModelsEnum.MISTRALAI_MIXTRAL_8X7B_INSTRUCT_V0_1: "Mixtral 8x7B Instruct v0.1",
