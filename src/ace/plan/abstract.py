@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, create_model
 from ..analysis import Analyzer
 from ..logging_config import get_logger
 from ..prompts.abstract_templates import generate_abstract_plan_template, generate_abstract_tool_template
-from ..schema import TOOL_GENERATION_SCHEMA, AbstractPlan, AbstractTool
+from ..schema import AbstractPlan, AbstractTool, ToolGenerationResponse
 
 logger = get_logger(__name__)
 
@@ -103,7 +103,7 @@ class AbstractPlanner:
 
         # Generation chains
         self.toolgen_chain = toolgen_prompt | (
-            self.base_llm.with_structured_output(TOOL_GENERATION_SCHEMA) | parse_tools_runnable
+            self.base_llm.with_structured_output(ToolGenerationResponse) | parse_tools_runnable
         ).with_retry(stop_after_attempt=self.max_retries)
 
         format_tools_runnable = RunnableLambda(lambda inputs: "\n".join([tool.as_json() for tool in inputs["tools"]]))  # type: ignore
@@ -129,25 +129,34 @@ class AbstractPlanner:
 
         return plan
 
-    def _parse_tools_fn(self, output: dict) -> list[AbstractTool]:
-        if not output or "apps" not in output:
-            raise ValueError("Malformed output; missing 'apps' key.")
+    def _parse_tools_fn(self, output: ToolGenerationResponse) -> list[AbstractTool]:
+        if not output or not output.apps:
+            return []
+
         abstract_tool_list = []
-        for i, tool in enumerate(output["apps"]):
+        for i, tool in enumerate(output.apps):
             try:
-                tool_input_schema = create_pydantic_schema(tool["inputs"])
-                tool_output_schema = create_pydantic_schema(tool["outputs"])
+                # Convert ToolParameter objects to the format expected by create_pydantic_schema
+                inputs = [
+                    {"name": param.name, "description": param.description, "type": param.type} for param in tool.inputs
+                ]
+                outputs = [
+                    {"name": param.name, "description": param.description, "type": param.type} for param in tool.outputs
+                ]
+
+                tool_input_schema = create_pydantic_schema(inputs)
+                tool_output_schema = create_pydantic_schema(outputs)
                 abstract_tool = AbstractTool(
-                    name=tool["name"],
-                    description=tool["description"],
+                    name=tool.name,
+                    description=tool.description,
                     args_schema=tool_input_schema,
                     output_schema=tool_output_schema,
                 )
                 abstract_tool_list.append(abstract_tool)
-                logger.log_structured("info", f"ABSTRACT_TOOL_{i + 1}", f"name={tool['name']}")
-                logger.log_structured("debug", f"ABSTRACT_TOOL_{i + 1}_FULL", str(tool))
+                logger.log_structured("info", f"ABSTRACT_TOOL_{i + 1}", f"name={tool.name}")
+                logger.log_structured("debug", f"ABSTRACT_TOOL_{i + 1}_FULL", str(tool.model_dump()))
             except Exception as e:
-                raise ValueError(f"Failed to instantiate AbstractTool for {tool.get('name', 'unnamed')}: {e}")
+                raise ValueError(f"Failed to instantiate AbstractTool for {tool.name}: {e}")
 
         self.analyzer.analyze_post_abstract_tools(abstract_tool_list)
 
