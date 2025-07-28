@@ -22,22 +22,22 @@ run_benchmark() {
 }
 
 # GPT-4o
-run_benchmark "gpt-4o-2024-11-20" "gpt-4o-2024-11-20" 0.0 0.0
-run_benchmark "gpt-4o-2024-11-20" "gpt-4o-mini-2024-07-18" 0.0 0.0
-run_benchmark "gpt-4o-2024-11-20" "gpt-4.1-mini-2025-04-14" 0.0 0.0
-run_benchmark "gpt-4o-2024-11-20" "gpt-4.1-nano-2025-04-14" 0.0 0.0
+# run_benchmark "gpt-4o-2024-11-20" "gpt-4o-2024-11-20" 0.0 0.0
+# run_benchmark "gpt-4o-2024-11-20" "gpt-4o-mini-2024-07-18" 0.0 0.0
+# run_benchmark "gpt-4o-2024-11-20" "gpt-4.1-mini-2025-04-14" 0.0 0.0
+# run_benchmark "gpt-4o-2024-11-20" "gpt-4.1-nano-2025-04-14" 0.0 0.0
 
 # GPT-4.1
 run_benchmark "gpt-4.1-2025-04-14" "gpt-4.1-2025-04-14" 0.0 0.0
-run_benchmark "gpt-4.1-2025-04-14" "gpt-4o-mini-2024-07-18" 0.0 0.0
-run_benchmark "gpt-4.1-2025-04-14" "gpt-4.1-mini-2025-04-14" 0.0 0.0
-run_benchmark "gpt-4.1-2025-04-14" "gpt-4.1-nano-2025-04-14" 0.0 0.0
+# run_benchmark "gpt-4.1-2025-04-14" "gpt-4o-mini-2024-07-18" 0.0 0.0
+# run_benchmark "gpt-4.1-2025-04-14" "gpt-4.1-mini-2025-04-14" 0.0 0.0
+# run_benchmark "gpt-4.1-2025-04-14" "gpt-4.1-nano-2025-04-14" 0.0 0.0
 
 # Claude Sonnet
-run_benchmark  "claude-4-sonnet-20250514" "claude-4-sonnet-20250514" 0.0 0.0
-run_benchmark "claude-3-7-sonnet-20250219" "claude-3-7-sonnet-20250219" 0.0 0.0
-run_benchmark "claude-3-5-sonnet-20241022" "claude-3-5-sonnet-20241022" 0.0 0.0
+# run_benchmark  "claude-4-sonnet-20250514" "claude-4-sonnet-20250514" 0.0 0.0
+# run_benchmark "claude-3-7-sonnet-20250219" "claude-3-7-sonnet-20250219" 0.0 0.0
+# run_benchmark "claude-3-5-sonnet-20241022" "claude-3-5-sonnet-20241022" 0.0 0.0
 
 # Default config
 # note 1.0 temperature needed for o3-mini
-run_benchmark "gpt-4o-2024-11-20" "o3-mini-2025-01-31" 0.0 1.0
+# run_benchmark "gpt-4o-2024-11-20" "o3-mini-2025-01-31" 0.0 1.0
