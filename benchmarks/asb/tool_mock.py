@@ -7,7 +7,7 @@ class MockTool(ConcreteToolBase):
 
     def generate_source(self) -> str:
         escaped_val = self.return_val.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
-        return f"def main(*args, **kwargs):\n" f"    return {{'return_val': '{escaped_val}'}}\n"
+        return f"def main(*args, **kwargs):\n    return {{'return_val': '{escaped_val}'}}\n"
 
 
 def to_pascal_case(snake_str: str) -> str:

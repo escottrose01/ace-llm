@@ -165,17 +165,70 @@ def run_trial(agent: AceAgent, task: str, user_tools: list[MockTool], attacker_t
     return trial_result
 
 
+def load_completed_cases(results_path: Path) -> set[tuple[str, str, str]]:
+    completed_cases = set()
+
+    if not results_path.exists():
+        return completed_cases
+
+    try:
+        with open(results_path) as f:
+            for line in f:
+                if line.strip():
+                    result = json.loads(line)
+                    agent_name = result.get("Agent")
+                    attacker_tool = result.get("Attacker Tool")
+                    task = result.get("Query")
+
+                    if agent_name and attacker_tool and task:
+                        completed_cases.add((agent_name, attacker_tool, task))
+    except (json.JSONDecodeError, FileNotFoundError) as e:
+        logger.warning(f"Could not load existing results from {results_path}: {e}")
+
+    return completed_cases
+
+
 def main(args: argparse.Namespace):
     load_dotenv()
 
     # Configure logging
-    run_id = str(uuid.uuid4())[:4]
-    basedir = os.path.dirname(__file__)
-    output_dir = (
-        args.output_dir
-        or Path(basedir) / "results" / f"{args.abs_model}-{args.conc_model}-{args.embedding_model}-{run_id}"
-    )
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if args.resume:
+        run_id = args.resume
+        basedir = os.path.dirname(__file__)
+        output_dir = Path(basedir) / "results" / f"{args.abs_model}-{args.conc_model}-{args.embedding_model}-{run_id}"
+
+        if not output_dir.exists():
+            raise ValueError(f"Resume directory {output_dir} does not exist")
+
+        # Load existing metadata to verify compatibility
+        metadata_path = output_dir / "metadata.json"
+        if metadata_path.exists():
+            with open(metadata_path) as f:
+                existing_metadata = json.load(f)
+                logger.info(f"Resuming run from {existing_metadata['timestamp']}")
+
+                # Create new args namespace with original run's args, keeping only the resume flag
+                original_args = existing_metadata.get("args", {})
+                resume_value = args.resume
+
+                # Create new argparse namespace with original args
+                args = argparse.Namespace(**original_args)
+
+                # Restore the resume argument
+                args.resume = resume_value
+
+                logger.info("Using original run arguments")
+        else:
+            logger.warning("No metadata.json found in resume directory")
+    else:
+        run_id = str(uuid.uuid4())[:4]
+        basedir = os.path.dirname(__file__)
+        output_dir = (
+            args.output_dir
+            or Path(basedir) / "results" / f"{args.abs_model}-{args.conc_model}-{args.embedding_model}-{run_id}"
+        )
+        output_dir.mkdir(parents=True, exist_ok=True)
+
     log_file_path = output_dir / "asb.log"
     setup_logging(log_level="DEBUG", log_file=str(log_file_path))
 
@@ -204,23 +257,31 @@ def main(args: argparse.Namespace):
     embedding = OpenAIEmbeddings(model=embedding_model.value)
 
     # Save metadata
-    with open(output_dir / "metadata.json", "w") as f:
-        json.dump(
-            {
-                "timestamp": datetime.datetime.now().isoformat(),
-                "args": vars(args),
-                "abs_model": abs_model.value,
-                "conc_model": conc_model.value,
-                "embedding_model": embedding_model.value,
-                "extra_context": args.extra_context,
-            },
-            f,
-            indent=4,
-        )
+    metadata_path = output_dir / "metadata.json"
+    if not args.resume or not metadata_path.exists():
+        with open(metadata_path, "w") as f:
+            json.dump(
+                {
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "args": vars(args),
+                    "abs_model": abs_model.value,
+                    "conc_model": conc_model.value,
+                    "embedding_model": embedding_model.value,
+                    "extra_context": args.extra_context,
+                },
+                f,
+                indent=4,
+            )
+
+    # Load completed cases if resuming
+    results_path = output_dir / "asb_results.jsonl"
+    completed_cases = load_completed_cases(results_path) if args.resume else set()
+
+    if args.resume and completed_cases:
+        logger.info(f"Resuming with {len(completed_cases)} completed cases")
 
     # Run trials
-    results_path = output_dir / "asb_results.jsonl"
-    with open(results_path, "w") as results_file:
+    with open(results_path, "a" if args.resume else "w") as results_file:
         for agent_name, tasks in ((entry["agent_name"], entry["tasks"]) for entry in agent_tasks):
             agent_name: str
             tasks: list[str]
@@ -278,15 +339,22 @@ def main(args: argparse.Namespace):
                 )
 
                 for task in tasks:
+                    # Skip if this case has already been completed
+                    case_key = (agent_name, attacker_tool_name, task)
+                    if case_key in completed_cases:
+                        logger.debug(f"Skipping completed case: {agent_name} - {attacker_tool_name} - {task[:50]}...")
+                        continue
+
+                    # Run the trial
                     run_result = run_trial(
                         agent=agent,
                         task=task,
                         user_tools=user_tools,
                         attacker_tool=attacker_tool,
                     )
-
                     run_result["Agent"] = agent_name
 
+                    # Save the result to the file
                     results_file.write(json.dumps(run_result) + "\n")
                     results_file.flush()
 
@@ -340,6 +408,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--extra_context", action="store_true", help="Give extra task context to the agent.")
     parser.add_argument("--output_dir", type=Path, default=None, help="Directory to save the benchmark results.")
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help="Resume from an existing run using the 4-character hash ID. Skips already completed cases.",
+    )
 
     args = parser.parse_args()
 
