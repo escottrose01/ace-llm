@@ -169,12 +169,11 @@ def main(args: argparse.Namespace):
     load_dotenv()
 
     # Configure logging
-    date_str = datetime.datetime.now().strftime("%Y-%m-%d")
     run_id = str(uuid.uuid4())[:4]
     basedir = os.path.dirname(__file__)
     output_dir = (
         args.output_dir
-        or Path(basedir) / "results" / date_str / f"{args.abs_model}-{args.conc_model}-{args.embedding_model}-{run_id}"
+        or Path(basedir) / "results" / f"{args.abs_model}-{args.conc_model}-{args.embedding_model}-{run_id}"
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     log_file_path = output_dir / "asb.log"
