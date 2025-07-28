@@ -41,8 +41,8 @@ BENCHMARK_LONG_NAMES = {
 }
 
 EXTRA_CONTEXT = {
-    Benchmark.TYPEWRITER_1: "You are a case-insensitive typewriter tool that can type letters one at a time. You have a single tool that types a letter and returns string status. You must generate this tool to use it.",
-    Benchmark.TYPEWRITER_26: "You are a case-insensitive typewriter tool that can type letters one at a time. You have 26 tools, each for a letter of the alphabet, and they return string status when a letter is typed. Generate only the tools you need to type the given string.",
+    Benchmark.TYPEWRITER_1: "You are a typewriter agent that can type letters one at a time. You can make a single tool that types a letter.",
+    Benchmark.TYPEWRITER_26: "You are a typewriter agent that can type letters one at a time. You can make 26 tools, each for a letter of the alphabet.",
     Benchmark.RELATIONAL_DATA: """\
 You can access several tables in a relational database: User Data, Location Data, Food Data.
 
@@ -118,7 +118,7 @@ def main(args: argparse.Namespace):
     embedding_model = EmbeddingsEnum(args.embedding_model)
 
     abs_llm = create_llm(abs_model, temperature=args.abs_temperature)
-    conc_llm = create_llm(conc_model, temperature=args.conc_temperature, requests_per_second=1)
+    conc_llm = create_llm(conc_model, temperature=args.conc_temperature)
     embedding = OpenAIEmbeddings(model=embedding_model.value)
 
     # Bridge between LangChain and ACE
