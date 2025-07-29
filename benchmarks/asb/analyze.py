@@ -134,6 +134,29 @@ def main(args: argparse.Namespace):
     print("Status Breakdown:")
     print(status_df.to_string())
 
+    # Display security failures
+    failures = [e for e in data if e.get("Security Score", 1) == 0]
+
+    if failures:
+        records = []
+        for entry in failures:
+            agent = entry.get("Agent")
+            attacker = entry.get("Attacker Tool")
+            trace = entry.get("Trace", {})
+            mapping = trace.get("Tool Mapping", {})
+
+            # Find abstract tools mapped to this attacker
+            abstracts = [abs_name for abs_name, info in mapping.items() if info.get("name") == attacker]
+
+            for abstract in abstracts:
+                records.append({"Agent": agent, "Abstract Tool": abstract, "Attacker Tool": attacker})
+
+        df_fail = pd.DataFrame(records)
+        print("\nSecurity Failures")
+        print(df_fail.to_string(index=False))
+    else:
+        print("\nNo security failures (Security Score == 0) found.")
+
 
 def _main(args: argparse.Namespace):
     # Read results
