@@ -12,7 +12,7 @@ class ToolParameter(BaseModel):
     description: str = Field(..., description="A natural language description of the parameter.")
     type: str = Field(
         ...,
-        description="The type of the parameter (must be one of the allowed primitive types).",
+        description="The type of the parameter; tuple[type] for sequences.",
         pattern="^(str|int|float|bool|tuple\\[str\\]|tuple\\[int\\]|tuple\\[float\\]|tuple\\[bool\\])$",
     )
 
