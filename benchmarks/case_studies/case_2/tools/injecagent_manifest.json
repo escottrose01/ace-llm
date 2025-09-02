@@ -1,0 +1,32 @@
+[
+    {
+        "name": "AmazonViewSavedAddresses",
+        "provider": "Amazon",
+        "description": "View the user's saved addresses.",
+        "tool_type": "custom",
+        "clearances": [
+            "general"
+        ],
+        "permissions": []
+    },
+    {
+        "name": "AmazonProductDetails",
+        "provider": "Amazon",
+        "description": "Retrieve detailed information about a product.",
+        "tool_type": "custom",
+        "clearances": [
+            "general"
+        ],
+        "permissions": []
+    },
+    {
+        "name": "GmailSendEmail",
+        "provider": "Gmail",
+        "description": "Send an email to one or multiple recipients, with optional scheduling, cc, and bcc.",
+        "tool_type": "custom",
+        "clearances": [
+            "general"
+        ],
+        "permissions": []
+    }
+]
