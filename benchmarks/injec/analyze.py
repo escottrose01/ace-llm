@@ -1,60 +1,52 @@
 import argparse
+import functools
 import json
+import operator
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 
 def main(args: argparse.Namespace):
-    dh_path = args.result_path / "directharm" / "results.jsonl"
-    ds_path = args.result_path / "datastealing" / "results.jsonl"
+    studies = ["directharm", "datastealing"]
+    data = dict()
+    dfs = []
 
-    # Read results
-    with open(dh_path) as f:
-        data_dh = [json.loads(line) for line in f if line.strip()]
-    with open(ds_path) as f:
-        data_ds = [json.loads(line) for line in f if line.strip()]
+    for study in studies:
+        study_path = args.result_path / study / "results.jsonl"
+        if not study_path.exists():
+            print(f"Warning: {study_path} does not exist. Skipping.")
+            continue
+        with open(study_path) as f:
+            data[study] = [json.loads(line) for line in f if line.strip()]
+    data["Overall"] = functools.reduce(operator.iadd, data.values(), [])
 
     # Build DataFrame for scores
-    df_dh = pd.DataFrame(
-        [
-            {
-                "Study": "directharm",
-                "Security Score": entry.get("Security Score", 0),
-                "Utility Score": entry.get("Utility Score", 0),
-                "Plan Time": entry.get("Trace", {}).get("Plan Time", 0),
-                "Match Time": entry.get("Trace", {}).get("Match Time", 0),
-                "Execution Time": entry.get("Trace", {}).get("Execution Time", 0),
-            }
-            for entry in data_dh
-        ]
-    )
-    df_ds = pd.DataFrame(
-        [
-            {
-                "Study": "datastealing",
-                "Security Score": entry.get("Security Score", 0),
-                "Utility Score": entry.get("Utility Score", 0),
-                "Plan Time": entry.get("Trace", {}).get("Plan Time", 0),
-                "Match Time": entry.get("Trace", {}).get("Match Time", 0),
-                "Execution Time": entry.get("Trace", {}).get("Execution Time", 0),
-            }
-            for entry in data_ds
-        ]
-    )
+    for study in data:
+        dfs.append(
+            pd.DataFrame(
+                [
+                    {
+                        "Study": study,
+                        "Security Score": entry.get("Security Score", 0),
+                        "Utility Score": entry.get("Utility Score", 0),
+                        "Plan Time": entry.get("Trace", {}).get("Plan Time", 0),
+                        "Match Time": entry.get("Trace", {}).get("Match Time", 0),
+                        "Execution Time": entry.get("Trace", {}).get("Execution Time", 0),
+                    }
+                    for entry in data[study]
+                ]
+            )
+        )
 
-    df = pd.concat([df_dh, df_ds], ignore_index=True)
+    df = pd.concat(dfs, ignore_index=True)
 
     # Mean scores per study
     df_grouped = df.groupby("Study").mean()
 
-    # Compute overall average scores
-    overall = df.drop("Study", axis=1).mean().to_frame().T
-    overall.index = ["Overall"]  # type: ignore
-    df_grouped = pd.concat([df_grouped, overall])
-
     # Collect timing info from successful runs
-    statuses = [d.get("Trace", {}).get("Status", "UNKNOWN") for d in data_dh + data_ds]
+    statuses = [d.get("Trace", {}).get("Status", "UNKNOWN") for d in data["Overall"]]
     status_counts = pd.Series(statuses).value_counts().to_dict()
 
     # Build status DataFrame
@@ -64,23 +56,44 @@ def main(args: argparse.Namespace):
     df_status = df_status.sort_values(["Count", "Status"], ascending=[False, True])
 
     # Compute phase success rates
-    def counts(entries):
+    for study in data:
+        entries = data[study]
+
+        for e in entries:
+            u = e.get("User Tool", "")
+            t = e.get("Trace", {})
+            if e.get("Utility Score", 0) == 0 and u in t.get("Invoked Tools", []):
+                print(f"Warning: Utility Score is 0 but User Tool '{u}' was invoked in study '{study}'.")
+
+            at = t.get("Abstract Tools", None)
+            if at is not None and len(at) == 0:
+                print(f"Warning: Abstract Tools is empty in study '{study}'.")
+
+            if e.get("Utility Score", 0) == 0 and t.get("Status", "") == "OK":
+                print("Warning: Utility Score is 0 but overall Status is OK")
+                print(t.get("Abstract Plan"))
+                print(e.get("Invoked Tools"))
+
         traces = [e.get("Trace", {}) for e in entries]
-        abstract = sum(1 for t in traces if "Abstract Plan" in t)
-        concrete = sum(1 for t in traces if "Tool Mapping" in t)
-        ok = sum(1 for t in traces if t.get("Status") == "OK")
-        return abstract, concrete, ok
+        user_tools = [e.get("User Tool", "") for e in entries]
 
-    a_dh, c_dh, ok_dh = counts(data_dh)
-    a_ds, c_ds, ok_ds = counts(data_ds)
-    a_all, c_all, ok_all = a_dh + a_ds, c_dh + c_ds, ok_dh + ok_ds
+        matched = np.array(
+            [
+                1 if u in map(lambda x: x.get("name", ""), t.get("Tool Mapping", {}).values()) else 0
+                for t, u in zip(traces, user_tools)
+            ]
+        )
+        executed = matched * np.array([1 if t.get("Status") == "OK" else 0 for t in traces])
 
-    df_grouped.loc["directharm", "Matching Succ"] = c_dh / a_dh
-    df_grouped.loc["directharm", "Execution Succ"] = ok_dh / c_dh
-    df_grouped.loc["datastealing", "Matching Succ"] = c_ds / a_ds
-    df_grouped.loc["datastealing", "Execution Succ"] = ok_ds / c_ds
-    df_grouped.loc["Overall", "Matching Succ"] = c_all / a_all
-    df_grouped.loc["Overall", "Execution Succ"] = ok_all / c_all
+        # Apparently there was a bug where status would report "OK" but script failed to run (?)
+        # So we also check that the list of invoked tools is nonempty
+        executed = executed * np.array([1 if len(t.get("Invoked Tools", [])) > 0 else 0 for t in traces])
+
+        e = executed.sum()
+        m = matched.sum()
+
+        df_grouped.loc[study, "Matching Succ"] = m / len(entries) if len(entries) > 0 else 0
+        df_grouped.loc[study, "Execution Succ"] = e / m if m > 0 else 0
 
     # Display analysis
     print(df_grouped.to_string())
