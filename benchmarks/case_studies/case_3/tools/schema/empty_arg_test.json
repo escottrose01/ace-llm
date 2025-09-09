@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "empty_arg_test": {
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "response": {
+          "type": "integer",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Response code number."
+        }
+      },
+      "required": [
+        "request",
+        "response"
+      ]
+    }
+  },
+  "required": [
+    "empty_arg_test"
+  ]
+}

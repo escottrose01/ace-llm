@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "poem_generator": {
+            "type": "object",
+            "properties": {
+                "request": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                },
+                "response": {
+                    "type": "string",
+                    "description": "The poem."
+                }
+            },
+            "required": [
+                "request",
+                "response"
+            ]
+        }
+    },
+    "required": [
+        "poem_generator"
+    ]
+}

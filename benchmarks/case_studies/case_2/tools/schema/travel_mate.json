@@ -1,0 +1,67 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "travel_mate": {
+            "type": "object",
+            "properties": {
+                "request": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the passenger."
+                        },
+                        "email": {
+                            "type": "string",
+                            "format": "email",
+                            "description": "The email address of the passenger."
+                        },
+                        "departure_city": {
+                            "type": "string",
+                            "description": "The city from which the passenger will depart."
+                        },
+                        "destination_city": {
+                            "type": "string",
+                            "description": "The destination city."
+                        },
+                        "departure_date": {
+                            "type": "string",
+                            "description": "The departure date."
+                        },
+                        "class_of_service": {
+                            "type": "string",
+                            "description": "The class of service for the travel."
+                        },
+                        "special_requirements": {
+                            "type": "string",
+                            "description": "Any special requirements for the travel."
+                        }
+                    },
+                    "required": [
+                        "name",
+                        "email",
+                        "departure_city",
+                        "destination_city",
+                        "departure_date",
+                        "class_of_service",
+                        "special_requirements"
+                    ]
+                },
+                "response": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "description": "A confirmation message for travel booking."
+                }
+            },
+            "required": [
+                "request",
+                "response"
+            ]
+        }
+    },
+    "required": [
+        "travel_mate"
+    ]
+}

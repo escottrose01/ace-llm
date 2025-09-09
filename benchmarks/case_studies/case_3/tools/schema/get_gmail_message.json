@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "get_gmail_message": {
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "message_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The ID of the message to retrieve."
+            }
+          },
+          "required": [
+            "message_id"
+          ]
+        },
+        "response": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "The detailed information of the message retrieved."
+        }
+      },
+      "required": [
+        "request",
+        "response"
+      ]
+    }
+  },
+  "required": [
+    "get_gmail_message"
+  ]
+}

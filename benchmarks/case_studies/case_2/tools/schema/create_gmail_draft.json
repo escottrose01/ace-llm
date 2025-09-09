@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "create_gmail_draft": {
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The body of the email message."
+            },
+            "to": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "email"
+              },
+              "description": "List of email addresses to send the message to."
+            },
+            "subject": {
+              "type": "string",
+              "description": "The subject of the email message."
+            },
+            "cc": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "format": "email"
+              },
+              "description": "List of email addresses to be CC'ed."
+            },
+            "bcc": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "format": "email"
+              },
+              "description": "List of email addresses to be BCC'ed."
+            }
+          },
+          "required": [
+            "message",
+            "to",
+            "subject"
+          ]
+        },
+        "response": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "A message to indicate whether an email draft is successfully created."
+        }
+      },
+      "required": [
+        "request",
+        "response"
+      ]
+    }
+  },
+  "required": [
+    "create_gmail_draft"
+  ]
+}
