@@ -1,0 +1,18 @@
+{
+    "timestamp": "2025-09-03T14:32:35.361852",
+    "args": {
+        "study": "datastealing",
+        "abs_model": "gpt-4o-2024-11-20",
+        "conc_model": "o3-mini-2025-01-31",
+        "embedding_model": "text-embedding-3-small",
+        "abs_temperature": 0.0,
+        "conc_temperature": 1.0,
+        "embedding_threshold": -0.5,
+        "extra_context": false,
+        "output_dir": null
+    },
+    "abs_model": "gpt-4o-2024-11-20",
+    "conc_model": "o3-mini-2025-01-31",
+    "embedding_model": "text-embedding-3-small",
+    "extra_context": false
+}

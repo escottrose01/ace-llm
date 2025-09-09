@@ -1,0 +1,18 @@
+{
+    "timestamp": "2025-09-05T19:52:08.511295",
+    "args": {
+        "study": "datastealing",
+        "abs_model": "Qwen/Qwen2.5-72B-Instruct",
+        "conc_model": "Qwen/Qwen2.5-72B-Instruct",
+        "embedding_model": "text-embedding-3-small",
+        "abs_temperature": 0.0,
+        "conc_temperature": 0.0,
+        "embedding_threshold": -1.0,
+        "extra_context": true,
+        "output_dir": "benchmarks/injec/results/Qwen/Qwen2.5-72B-Instruct-Qwen/Qwen2.5-72B-Instruct/datastealing"
+    },
+    "abs_model": "Qwen/Qwen2.5-72B-Instruct",
+    "conc_model": "Qwen/Qwen2.5-72B-Instruct",
+    "embedding_model": "text-embedding-3-small",
+    "extra_context": true
+}
