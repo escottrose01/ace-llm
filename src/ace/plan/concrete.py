@@ -36,17 +36,136 @@ logger = get_logger(__name__)
 
 
 class AnnotationTransformer(ast.NodeTransformer):
-    """Converts attribute access (x.y) to string indexing (x["y"]) in the AST."""
-
     # TODO: this is a hack for now. Proper solution should involve type system.
 
-    def visit_Attribute(self, node):
-        self.generic_visit(node)
-        return ast.Subscript(
-            value=node.value,
-            slice=ast.Constant(value=node.attr),
-            ctx=node.ctx,
-        )
+    def __init__(self, dict_roots: set[str] | None = None, allowed_paths: dict[str, set[str]] | None = None):
+        super().__init__()
+        self.dict_roots: set[str] = set(dict_roots or [])
+        # Map like {"result": {"product_details", ...}, "result.product_details": {...}}
+        self.allowed_paths: dict[str, set[str]] | None = allowed_paths or None
+        # Track variables that are aliases of dict-like objects (flow-insensitive)
+        self._dict_like_vars: set[str] = set(self.dict_roots)
+
+    def visit_Assign(self, node: ast.Assign) -> ast.AST:
+        # Visit value first (so nested attributes inside are transformed as needed)
+        value = self.visit(node.value)
+
+        # If the value is derived from a dict-like root, mark targets as dict-like aliases
+        if self._is_dictish_expr(value):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self._dict_like_vars.add(target.id)
+
+        node.value = value
+        node.targets = [self.visit(t) for t in node.targets]
+        return node
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        # Transform args/keywords normally
+        node.args = [self.visit(a) for a in node.args]
+        node.keywords = [ast.keyword(arg=k.arg, value=self.visit(k.value)) for k in node.keywords]
+
+        # Preserve method name in calls like obj.get(...), but convert the receiver chain if dict-like
+        node.func = self._visit_callable(node.func)
+        return node
+
+    def _visit_callable(self, func: ast.AST) -> ast.AST:
+        # obj.method(...) -> keep ".method", but convert obj chain if dict-like
+        if isinstance(func, ast.Attribute):
+            converted_value = self._convert_attr_chain_if_dictish(func.value)
+            if converted_value is not None:
+                return ast.Attribute(value=converted_value, attr=str(func.attr), ctx=func.ctx)
+        # Fallback
+        return self.visit(func)
+
+    def visit_Attribute(self, node: ast.Attribute) -> ast.AST:
+        # Transform children first
+        node.value = self.visit(node.value)
+
+        # If this attribute is on a dict-like expression, convert x.y -> x["y"],
+        # except when gated by allowed_paths.
+        if self._is_dictish_expr(node.value):
+            if self._is_allowed_at_path(node.value, str(node.attr)):
+                return ast.Subscript(
+                    value=node.value,
+                    slice=ast.Constant(value=str(node.attr)),
+                    ctx=node.ctx,
+                )
+        return node
+
+    def _convert_attr_chain_if_dictish(self, node: ast.AST) -> ast.AST | None:
+        # Convert a chain like obj.a.b (if dictish) to obj["a"]["b"]
+        if not self._is_dictish_expr(node):
+            return None
+
+        def convert(n: ast.AST, path_prefix: list[str]) -> ast.AST:
+            if isinstance(n, ast.Attribute):
+                base = convert(n.value, path_prefix)
+                # allowed check at this path
+                if self._is_allowed_at_path(base, str(n.attr), current_path=path_prefix):
+                    [*path_prefix, str(n.attr)]
+                    return ast.Subscript(
+                        value=base,
+                        slice=ast.Constant(value=str(n.attr)),
+                        ctx=n.ctx,
+                    )
+                # If not allowed, leave attribute (do not convert further up this node)
+                return ast.Attribute(value=base, attr=str(n.attr), ctx=n.ctx)
+            else:
+                return n
+
+        # Build path prefix from the root down the current chain
+        path_prefix = self._collect_attr_path_until_non_attr(node)
+        return convert(node, path_prefix)
+
+    def _is_dictish_expr(self, node: ast.AST) -> bool:
+        # A Name is dict-like if in tracked set
+        if isinstance(node, ast.Name):
+            return node.id in self._dict_like_vars
+        # A Subscript whose value is dictish is dict-like
+        if isinstance(node, ast.Subscript):
+            return self._is_dictish_expr(node.value)
+        # An Attribute whose value is dictish is dict-like
+        if isinstance(node, ast.Attribute):
+            return self._is_dictish_expr(node.value)
+        # A Call like dict_like.get(...) returns arbitrary; treat as non-dictish unless assigned then used
+        return False
+
+    def _collect_attr_path_until_non_attr(self, node: ast.AST) -> list[str]:
+        # Collects path names only (best-effort; used for allowed_paths context)
+        parts: list[str] = []
+        cur = node
+        while isinstance(cur, ast.Attribute):
+            parts.append(str(cur.attr))
+            cur = cur.value
+        parts.reverse()
+        return parts
+
+    def _path_key_for(self, base: ast.AST, current_path: list[str] | None = None) -> str | None:
+        # Determine the dict root name for this base expression; only support Name roots
+        root_name = None
+        if isinstance(base, ast.Name) and base.id in self.dict_roots:
+            root_name = base.id
+        elif isinstance(base, ast.Subscript):
+            return self._path_key_for(base.value, current_path)
+        elif isinstance(base, ast.Attribute):
+            return self._path_key_for(base.value, current_path)
+        else:
+            return None
+
+        parts = current_path or []
+        return root_name if not parts else f"{root_name}.{'.'.join(parts)}"
+
+    def _is_allowed_at_path(self, base: ast.AST, next_attr: str, current_path: list[str] | None = None) -> bool:
+        if self.allowed_paths is None:
+            return True
+        key = self._path_key_for(base, current_path)
+        if key is None:
+            return True
+        allowed = self.allowed_paths.get(key)
+        if not allowed:
+            return True
+        return next_attr in allowed
 
 
 class SchemaAdaptedTool(ConcreteToolBase):
@@ -89,14 +208,22 @@ class SchemaAdaptedTool(ConcreteToolBase):
 
         field_names = list(self.args_schema.model_fields.keys())
 
+        # Build allowed attribute paths from the wrapped tool's output schema (top-level only)
+        allowed_paths: dict[str, set[str]] | None = None
+        try:
+            out_schema = getattr(self.wrapped_tool, "output_schema", None)
+            if out_schema is not None and hasattr(out_schema, "model_fields"):
+                allowed_paths = {"result": set(out_schema.model_fields.keys())}
+        except Exception:
+            allowed_paths = None
+
         # Parse and transform the input and output mapping sources
         # TODO: Use of AnnotationTransformer here is a workaround. Ideally, we should use the type system directly.
         input_mapping = ast.parse(self.input_mapping_source).body[0]
-        input_mapping = AnnotationTransformer().visit(input_mapping)
         input_mapping = ast.fix_missing_locations(input_mapping)
 
         output_mapping = ast.parse(self.output_mapping_source).body[0]
-        output_mapping = AnnotationTransformer().visit(output_mapping)
+        output_mapping = AnnotationTransformer(dict_roots={"result"}, allowed_paths=allowed_paths).visit(output_mapping)
         output_mapping = ast.fix_missing_locations(output_mapping)
 
         # Begin building the main function
