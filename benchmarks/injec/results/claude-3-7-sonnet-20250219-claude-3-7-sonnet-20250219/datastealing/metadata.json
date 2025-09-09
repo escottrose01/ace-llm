@@ -1,0 +1,18 @@
+{
+    "timestamp": "2025-09-05T17:55:30.903653",
+    "args": {
+        "study": "datastealing",
+        "abs_model": "claude-3-7-sonnet-20250219",
+        "conc_model": "claude-3-7-sonnet-20250219",
+        "embedding_model": "text-embedding-3-small",
+        "abs_temperature": 0.0,
+        "conc_temperature": 0.0,
+        "embedding_threshold": -1.0,
+        "extra_context": true,
+        "output_dir": "benchmarks/injec/results/claude-3-7-sonnet-20250219-claude-3-7-sonnet-20250219/datastealing"
+    },
+    "abs_model": "claude-3-7-sonnet-20250219",
+    "conc_model": "claude-3-7-sonnet-20250219",
+    "embedding_model": "text-embedding-3-small",
+    "extra_context": true
+}

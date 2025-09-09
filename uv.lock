@@ -42,6 +42,10 @@ dependencies = [
 bench-asb = [
     { name = "pandas" },
 ]
+bench-injec = [
+    { name = "pandas" },
+    { name = "polyfactory" },
+]
 bench-langchain = [
     { name = "flask" },
     { name = "langchain-benchmarks" },
@@ -82,6 +86,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 bench-asb = [{ name = "pandas", specifier = ">=2.3.1" }]
+bench-injec = [
+    { name = "pandas", specifier = ">=2.3.1" },
+    { name = "polyfactory", specifier = ">=2.22.2" },
+]
 bench-langchain = [
     { name = "flask", specifier = ">=3.1.2" },
     { name = "langchain-benchmarks", specifier = ">=0.0.10" },
@@ -805,6 +813,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/2b/437c2f36c3aa3cffe041479fced1c76420d3e92e1f434f1da3be3e6f32b1/faiss_cpu-1.11.0-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:2b6e355dda72b3050991bc32031b558b8f83a2b3537a2b9e905a84f28585b47e", size = 3785181, upload-time = "2025-04-28T07:48:10.594Z" },
     { url = "https://files.pythonhosted.org/packages/66/75/955527414371843f558234df66fa0b62c6e86e71e4022b1be9333ac6004c/faiss_cpu-1.11.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:6c482d07194638c169b4422774366e7472877d09181ea86835e782e6304d4185", size = 31287635, upload-time = "2025-04-28T07:48:12.93Z" },
     { url = "https://files.pythonhosted.org/packages/50/51/35b7a3f47f7859363a367c344ae5d415ea9eda65db0a7d497c7ea2c0b576/faiss_cpu-1.11.0-cp313-cp313-win_amd64.whl", hash = "sha256:13eac45299532b10e911bff1abbb19d1bf5211aa9e72afeade653c3f1e50e042", size = 15005455, upload-time = "2025-04-28T07:48:16.173Z" },
+]
+
+[[package]]
+name = "faker"
+version = "37.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tzdata" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/24/cd/f7679c20f07d9e2013123b7f7e13809a3450a18d938d58e86081a486ea15/faker-37.6.0.tar.gz", hash = "sha256:0f8cc34f30095184adf87c3c24c45b38b33ad81c35ef6eb0a3118f301143012c", size = 1907960, upload-time = "2025-08-26T15:56:27.419Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/7d/8b50e4ac772719777be33661f4bde320793400a706f5eb214e4de46f093c/faker-37.6.0-py3-none-any.whl", hash = "sha256:3c5209b23d7049d596a51db5d76403a0ccfea6fc294ffa2ecfef6a8843b1e6a7", size = 1949837, upload-time = "2025-08-26T15:56:25.33Z" },
 ]
 
 [[package]]
@@ -2750,6 +2770,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
+name = "polyfactory"
+version = "2.22.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "faker" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/a6/950d13856d995705df33b92451559fd317207a9c43629ab1771135a0c966/polyfactory-2.22.2.tar.gz", hash = "sha256:a3297aa0b004f2b26341e903795565ae88507c4d86e68b132c2622969028587a", size = 254462, upload-time = "2025-08-15T06:23:21.28Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/fe/d52c90e07c458f38b26f9972a25cb011b2744813f76fcd6121dde64744fa/polyfactory-2.22.2-py3-none-any.whl", hash = "sha256:9bea58ac9a80375b4153cd60820f75e558b863e567e058794d28c6a52b84118a", size = 63715, upload-time = "2025-08-15T06:23:19.664Z" },
 ]
 
 [[package]]
